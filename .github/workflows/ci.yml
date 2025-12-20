@@ -1,0 +1,63 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint_test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U ruff black mypy bandit pip-audit pytest
+          pip install -U fastapi "uvicorn[standard]" typer pydantic pydantic-settings sqlmodel alembic python-dateutil APScheduler httpx
+          pip install -e .
+      - name: Pre-commit
+        run: |
+          python -m pre_commit install
+          python -m pre_commit run -a
+      - name: Tests (coverage)
+        run: |
+          pytest --cov=frapp --cov-report=xml
+      - name: Upload coverage.xml
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+      - name: SBOM (pip-audit CycloneDX)
+        run: |
+          mkdir -p diagnostics
+          python -m pip_audit -f cyclonedx-json -o diagnostics/sbom.json || true
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: diagnostics/sbom.json
+      - name: Gitleaks (secrets scan)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --no-git -v
+
+  docs:
+    needs: lint_test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install mkdocs mkdocs-material
+      - run: mkdocs gh-deploy --force

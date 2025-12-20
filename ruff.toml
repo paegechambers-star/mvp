@@ -1,0 +1,19 @@
+[lint]
+exclude = [
+  "recovery",
+  "archive",
+  "logs",
+  "exports",
+  ".venv",
+  "dist",
+  "build",
+  "__pycache__",
+]
+
+[format]
+line-ending = "lf"
+
+[lint.per-file-ignores]
+# Beispiel: legacy Skripte (aktiviere bei Bedarf)
+#"src/launcher/**/*.py" = ["E701","E702"]
+#"src/frapp_desktop/**/*.py" = ["E701","E702"]
