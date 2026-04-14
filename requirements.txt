@@ -1,1 +1,17 @@
-# Projektabhängigkeiten hier eintragen
+# FraPP + G.O.D.A.I. Dependencies
+# Last audited: 2026-04-14 | See LICENSES.md for license details
+
+# ── FraPP / API ──────────────────────────────────────────────
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+sqlmodel>=0.0.14
+pydantic-settings>=2.0.0
+typer>=0.9.0
+
+# ── G.O.D.A.I. ───────────────────────────────────────────────
+pyyaml>=6.0
+
+# ── Testing ──────────────────────────────────────────────────
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.24.0
