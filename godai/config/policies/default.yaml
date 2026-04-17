@@ -1,0 +1,46 @@
+# G.O.D.A.I. Default Policy File
+# Version: 1.0 | Owner: Lucas William Chambers
+#
+# BINDING rules evaluated by THEMIS for every request.
+# Rules are evaluated in declaration order; first matching denial wins.
+# All rule changes must be version-bumped.
+#
+# Condition DSL:
+#   data_class   == PUBLIC | INTERNAL | SENSITIVE | RESTRICTED
+#   trust_level  >= L0 | L1 | L2 | L3  (integer comparison: L0=0, L1=1, L2=2, L3=3)
+#   action       == '<string>'
+#   explicit_consent == true | false
+#   Compound: condition1 and condition2
+
+version: "1.0"
+
+rules:
+  - id: "RESTRICTED_REQUIRES_L3"
+    condition: "data_class == RESTRICTED"
+    requirement: "trust_level >= L3"
+    action: "deny"
+    message: "Restricted data requires L3 (internal/admin) trust level"
+
+  - id: "PII_REQUIRES_L2"
+    condition: "data_class == SENSITIVE"
+    requirement: "trust_level >= L2"
+    action: "deny"
+    message: "Sensitive data requires L2+ trust level"
+
+  - id: "INTERNAL_REQUIRES_L1"
+    condition: "data_class == INTERNAL"
+    requirement: "trust_level >= L1"
+    action: "deny"
+    message: "Internal data requires L1+ (authenticated) trust level"
+
+  - id: "EMAIL_REQUIRES_CONSENT"
+    condition: "action == 'send_email'"
+    requirement: "explicit_consent == true"
+    action: "deny"
+    message: "Email actions require explicit user consent"
+
+  - id: "DELETE_REQUIRES_L2"
+    condition: "action == 'delete'"
+    requirement: "trust_level >= L2"
+    action: "deny"
+    message: "Delete actions require L2+ trust level"

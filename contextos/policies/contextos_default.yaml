@@ -1,0 +1,31 @@
+version: "1.0"
+description: "Default ContextOS knowledge-governance policy rules"
+
+rules:
+  - id: "NO_CITATION_NO_ASSERTION"
+    description: "Non-empty truth assertions must carry at least one citation"
+    condition: "truth_gate in [SINGLE_SOURCE, CORROBORATED, AUTHORITATIVE]"
+    requirement: "has_citations == true"
+    action: "deny"
+    message: "Entries claiming truth (SINGLE_SOURCE+) must cite at least one source"
+
+  - id: "AUTHORITATIVE_REQUIRES_ADMIN"
+    description: "Only ADMIN or SYSTEM actors may set TruthGate to AUTHORITATIVE"
+    condition: "truth_gate == AUTHORITATIVE"
+    requirement: "actor in [ADMIN, SYSTEM]"
+    action: "deny"
+    message: "AUTHORITATIVE entries require ADMIN or SYSTEM actor"
+
+  - id: "RESTRICTED_CLUSTER_REQUIRES_L3"
+    description: "LEGAL cluster entries require ADMIN actor"
+    condition: "cluster == LEGAL"
+    requirement: "actor in [ADMIN, SYSTEM]"
+    action: "warn"
+    message: "LEGAL cluster entries should be created by ADMIN or SYSTEM"
+
+  - id: "NO_SELF_CITATION"
+    description: "An entry must not cite itself"
+    condition: "self_citation == true"
+    requirement: "self_citation == false"
+    action: "deny"
+    message: "An entry cannot be its own citation source"
