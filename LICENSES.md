@@ -200,6 +200,21 @@ No GPL, AGPL, or SSPL dependencies are present.
 
 ---
 
+## ContextOS Dependencies
+
+### NetworkX
+
+| Field | Value |
+|-------|-------|
+| Package | `networkx` |
+| Version | ≥ 3.0 |
+| License | BSD-3-Clause |
+| Author | NetworkX Developers |
+| URL | https://networkx.org |
+| Usage | Citation graph construction and cycle detection in ContextOS resolver |
+
+---
+
 ## Standard Library Modules Used
 
 The following Python standard library modules are used — they carry the

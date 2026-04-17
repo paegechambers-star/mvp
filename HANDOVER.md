@@ -321,7 +321,77 @@ pytest godai/tests/test_pipeline.py -v
 
 ---
 
-## 10. Known Limitations & Future Work
+## 10. ContextOS™ Knowledge-Governance Layer
+
+ContextOS is a deterministic knowledge-governance system embedded in FraPP.
+It enforces 8 hard invariants and provides tamper-evident knowledge storage.
+
+### Architecture
+
+```
+contextos/
+├── types.py          # Enums + dataclasses (Kind, Actor, Cluster, …)
+├── id_generator.py   # 16-char NKID/MKID generator (base36, SHA256 checksum)
+├── store.py          # Content-addressable blob store (~/.frapp/contextos/store/)
+├── log.py            # SHA256-chained SQLite audit log (ContextOSLog)
+├── commit.py         # CommitBlock factory (PATCH/SUPERSEDE/PROMOTE/DEPRECATE)
+├── register.py       # SQLite WAL register — ssot (immutable) + work (mutable)
+├── index.py          # In-memory + JSON-persisted fast lookup
+├── resolver.py       # Query engine with networkx citation graph
+├── mkid_runner.py    # MKID execution engine (5 default MKIDs seeded)
+├── godai_audit.py    # SOLE bridge to G.O.D.A.I. MNEMOSYNE (fail-closed)
+├── ui.py             # PyQt5 tab with headless fallback
+└── policies/
+    └── contextos_default.yaml
+```
+
+### 8 Hard Invariants
+
+| # | Invariant | Enforcement |
+|---|-----------|-------------|
+| 1 | Register ↔ Log mutual dependency | Same SQLite transaction writes both |
+| 2 | SSOT immutable | INSERT only on `ssot` table |
+| 3 | WORK mutable | INSERT + UPDATE on `work` table |
+| 4 | No-Citation = No-Assertion | `_assert_citations()` before every write |
+| 5 | All IDs pass `validate_id()` | Checksum verified on parse |
+| 6 | MNEMOSYNE external only | Only `godai_audit.py` imports from godai |
+| 7 | CommitBlocks frozen | `@dataclass(frozen=True)` |
+| 8 | Chain integrity verifiable | `ContextOSLog.verify_chain()` at any time |
+
+### ID Format (16 chars, all base36)
+
+```
+[kind 2][actor 2][cluster 2][entry_type 2][truth_gate 2][time_bucket 2][sequence 2][checksum 2]
+```
+
+- Kind: `NK` (Node Knowledge / SSOT) | `MK` (Meta Knowledge / WORK)
+- Checksum: polynomial hash over first 14 chars, modulo 36²
+
+### Quick Start
+
+```python
+from contextos import Register, ContextOSLog, generate_id
+from contextos.types import Kind, Actor, Cluster, EntryType, TruthGate
+from pathlib import Path
+
+base = Path.home() / ".frapp" / "contextos"
+log = ContextOSLog(base / "contextos.db")
+reg = Register(base / "contextos.db", log)
+
+nkid = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL,
+                    EntryType.FACT, TruthGate.UNVERIFIED,
+                    time_bucket="00", sequence=0)
+```
+
+### Running ContextOS Tests
+
+```bash
+pytest tests/contextos/ -v     # 89 tests
+```
+
+---
+
+## 11. Known Limitations & Future Work
 
 | Item | Notes |
 |------|-------|
