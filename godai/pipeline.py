@@ -20,7 +20,7 @@ Wires together all five modules in the exact order specified:
 Three Invariants enforced here:
   1. Generator ≠ Arbiter: LLM generates; pipeline decides.
   2. Policy = Data: only THEMIS evaluates policy; pipeline never hardcodes rules.
-  3. All Decisions Logged: every module logs to MNEMOSYNE before returning.
+  3. All Decisions Logged: every module AND the pipeline logs to MNEMOSYNE.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from godai.models.audit import AuditEvent
 from godai.models.policy import PolicyDecision
 from godai.models.request import InternalRequest
 from godai.models.routing import RouteDecision
@@ -83,12 +84,21 @@ class GodaiPipeline:
     """
     G.O.D.A.I. Pipeline — orchestrates the full request lifecycle.
 
-    All five modules are constructed by the pipeline with shared
+    All five modules are constructed by the pipeline with a shared
     MNEMOSYNE instance, ensuring every decision is audit-logged.
+    The pipeline itself also emits ``source_module="PIPELINE"`` events
+    at lifecycle boundaries (success, policy denial, validation failure,
+    generation failure) to satisfy Invariant 3 at the orchestration level.
+
+    The generator LLM provider is injected directly into the pipeline —
+    it is separate from the validator provider held by ATHENA.  This
+    enforces Invariant 1 (Generator ≠ Arbiter) at the structural level:
+    ATHENA only ever sees validator calls, never generation calls.
 
     Usage::
 
-        pipeline = GodaiPipeline.create(llm_provider=my_provider)
+        from godai.providers import EchoProvider
+        pipeline = GodaiPipeline.create(llm_provider=EchoProvider())
         result = await pipeline.process(
             token="elevated-mytoken",
             user_id="user-123",
@@ -109,12 +119,24 @@ class GodaiPipeline:
         themis: Themis,
         apollon: Apollon,
         athena: Athena,
+        llm_provider: LLMProvider,
     ) -> None:
+        """
+        Args:
+            mnemosyne: Shared audit log (all modules write here).
+            hermes: Auth gateway.
+            themis: Policy engine.
+            apollon: Deterministic router.
+            athena: Cross-validator (holds its own validator provider).
+            llm_provider: Generator LLM backend.  Separate from ATHENA's
+                validator provider — enforces Generator ≠ Arbiter structurally.
+        """
         self._mnemosyne = mnemosyne
         self._hermes = hermes
         self._themis = themis
         self._apollon = apollon
         self._athena = athena
+        self._llm_provider = llm_provider  # generator only — ATHENA uses its own
 
     @classmethod
     def create(
@@ -129,8 +151,13 @@ class GodaiPipeline:
         """
         Convenience factory that wires all five modules with a shared MNEMOSYNE.
 
+        The same ``llm_provider`` instance is used for both generation
+        (at pipeline level) and validation (inside ATHENA).  ATHENA selects
+        a *different* model_id for validation, so the same backend can serve
+        both roles without violating the validator ≠ generator invariant.
+
         Args:
-            llm_provider: LLM backend for both generation and validation.
+            llm_provider: LLM backend for generation and validation.
             policy_path: Path to the THEMIS YAML policy file.
             routing_path: Path to the APOLLON YAML routing config.
             rate_limit: Per-user request rate limit enforced by HERMES.
@@ -150,7 +177,24 @@ class GodaiPipeline:
             strategy=validation_strategy,
             confidence_threshold=confidence_threshold,
         )
-        return cls(mnemosyne, hermes, themis, apollon, athena)
+        return cls(mnemosyne, hermes, themis, apollon, athena, llm_provider)
+
+    # ------------------------------------------------------------------
+    # Internal audit helper
+    # ------------------------------------------------------------------
+
+    async def _log(
+        self,
+        event_type: str,
+        event_data: Dict[str, Any],
+    ) -> None:
+        """Append a PIPELINE-sourced audit event to MNEMOSYNE."""
+        await self._mnemosyne.append(AuditEvent(
+            event_type=event_type,
+            event_data=event_data,
+            source_module="PIPELINE",
+            timestamp=datetime.now(timezone.utc),
+        ))
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -170,6 +214,11 @@ class GodaiPipeline:
         Authentication failures and rate-limit errors are caught and
         returned as unsuccessful PipelineResults (rather than propagating
         exceptions) so callers can translate them to HTTP 401/429.
+
+        Every outcome — success or failure — is logged to MNEMOSYNE by the
+        pipeline itself (``source_module="PIPELINE"``) in addition to the
+        per-module events.  This satisfies Invariant 3 at the orchestration
+        level.
 
         Args:
             token: Bearer token for authentication (passed to HERMES).
@@ -194,6 +243,11 @@ class GodaiPipeline:
             )
         except AuthenticationError as exc:
             _logger.warning("Pipeline: auth rejected for %s: %s", user_id, exc)
+            await self._log("pipeline_error", {
+                "user_id": user_id,
+                "stage": "auth",
+                "error": str(exc),
+            })
             return PipelineResult(
                 success=False,
                 output=None,
@@ -206,6 +260,11 @@ class GodaiPipeline:
             )
         except RateLimitError as exc:
             _logger.warning("Pipeline: rate limit for %s: %s", user_id, exc)
+            await self._log("pipeline_error", {
+                "user_id": user_id,
+                "stage": "rate_limit",
+                "error": str(exc),
+            })
             return PipelineResult(
                 success=False,
                 output=None,
@@ -227,6 +286,12 @@ class GodaiPipeline:
                 request.request_id,
                 policy_decision.reason,
             )
+            await self._log("pipeline_error", {
+                "request_id": str(request.request_id),
+                "user_id": request.user_id,
+                "stage": "policy",
+                "reason": policy_decision.reason,
+            })
             return PipelineResult(
                 success=False,
                 output=None,
@@ -242,10 +307,10 @@ class GodaiPipeline:
         route_decision = await self._apollon.route(request, policy_decision)
 
         # ── Step 5: LLM generation ────────────────────────────────────
-        # The pipeline delegates to the injected provider.
-        # Invariant 1: the provider generates; the pipeline decides what to do.
+        # Invariant 1 enforced structurally: self._llm_provider is the
+        # generator; ATHENA's internal provider handles validation only.
         try:
-            generator_output = await self._athena._provider.generate(
+            generator_output = await self._llm_provider.generate(
                 model_id=route_decision.model_id,
                 prompt=request.query,
                 context=request.context,
@@ -256,6 +321,13 @@ class GodaiPipeline:
                 request.request_id,
                 exc,
             )
+            await self._log("pipeline_error", {
+                "request_id": str(request.request_id),
+                "user_id": request.user_id,
+                "stage": "generation",
+                "model_id": route_decision.model_id,
+                "error": str(exc),
+            })
             return PipelineResult(
                 success=False,
                 output=None,
@@ -281,6 +353,13 @@ class GodaiPipeline:
                 request.request_id,
                 validation_result.issues_found,
             )
+            await self._log("pipeline_error", {
+                "request_id": str(request.request_id),
+                "user_id": request.user_id,
+                "stage": "validation",
+                "issues": validation_result.issues_found,
+                "confidence": validation_result.confidence,
+            })
             return PipelineResult(
                 success=False,
                 output=None,
@@ -292,11 +371,18 @@ class GodaiPipeline:
                 timestamp=now,
             )
 
+        # ── Step 8: Pipeline success ──────────────────────────────────
         _logger.info(
             "Pipeline: request %s completed successfully → model=%s",
             request.request_id,
             route_decision.model_id,
         )
+        await self._log("pipeline_success", {
+            "request_id": str(request.request_id),
+            "user_id": request.user_id,
+            "model_id": route_decision.model_id,
+            "output_len": len(generator_output),
+        })
         return PipelineResult(
             success=True,
             output=generator_output,

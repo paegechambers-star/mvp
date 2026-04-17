@@ -133,13 +133,14 @@ async def test_all_decisions_logged_to_mnemosyne() -> None:
         query="q",
         context={"data_class": "PUBLIC"},
     )
-    # Expect at least: auth, policy_check, routing, validation
-    assert len(pipeline.mnemosyne) >= 4
+    # Expect at least: auth, policy_check, routing, validation + pipeline_success
+    assert len(pipeline.mnemosyne) >= 5
     event_types = {e.event_type for e in pipeline.mnemosyne.entries}
     assert "auth" in event_types
     assert "policy_check" in event_types
     assert "routing" in event_types
     assert "validation" in event_types
+    assert "pipeline_success" in event_types  # Invariant 3: pipeline logs its own outcome
 
 
 @pytest.mark.asyncio
@@ -190,6 +191,7 @@ async def test_policy_denial_still_logs_to_mnemosyne() -> None:
     event_types = {e.event_type for e in pipeline.mnemosyne.entries}
     assert "auth" in event_types
     assert "policy_check" in event_types
+    assert "pipeline_error" in event_types  # pipeline logs its own failure outcome
 
 
 # ---------------------------------------------------------------------------

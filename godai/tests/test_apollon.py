@@ -187,11 +187,11 @@ async def test_route_logs_to_mnemosyne(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_route_decision_includes_policy_version(tmp_path: Path) -> None:
+async def test_route_decision_includes_routing_version(tmp_path: Path) -> None:
     p = _write_routing(tmp_path, MINIMAL_CONFIG)
     a = Apollon(Mnemosyne(), p)
     decision = await a.route(_make_request(), _allow())
-    assert decision.policy_version == "1.0"
+    assert decision.routing_version == "1.0"
 
 
 # ---------------------------------------------------------------------------

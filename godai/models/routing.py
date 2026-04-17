@@ -20,4 +20,4 @@ class RouteDecision:
     reason: str             # Human-readable routing rationale
     alternatives: List[str] # Other candidate models (for audit purposes only)
     timestamp: datetime
-    policy_version: str     # Version of the routing config that was applied
+    routing_version: str    # Version of the routing config that was applied

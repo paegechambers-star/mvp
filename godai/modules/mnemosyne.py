@@ -92,6 +92,7 @@ class Mnemosyne:
                 event_id=uuid4(),
                 event_type=event.event_type,
                 event_data=event.event_data,
+                source_module=event.source_module,
                 timestamp=event.timestamp,
                 hash=computed_hash,
                 prev_hash=prev_hash,

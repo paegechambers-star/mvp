@@ -47,6 +47,7 @@ class LogEntry:
     event_id: UUID
     event_type: str
     event_data: Dict[str, Any]
+    source_module: str      # Which module wrote this entry (e.g. "HERMES", "PIPELINE")
     timestamp: datetime
     hash: str               # SHA256 hex digest of (event_data_json + prev_hash)
     prev_hash: str          # Hash of the preceding entry (GENESIS_HASH for index 0)

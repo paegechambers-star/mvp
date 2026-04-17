@@ -200,7 +200,7 @@ class Apollon:
             reason=selected_reason or "",
             alternatives=alternatives,
             timestamp=datetime.now(timezone.utc),
-            policy_version=self._routing_version,
+            routing_version=self._routing_version,
         )
 
         await self._mnemosyne.append(AuditEvent(
