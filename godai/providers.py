@@ -129,20 +129,15 @@ class LoggingProvider:
 
 class AnthropicProvider:
     """
-    Skeleton provider for the Anthropic Claude API.
+    Production provider for the Anthropic Claude API.
 
-    To activate:
+    Requires:
       1. ``pip install anthropic``
-      2. Set ``ANTHROPIC_API_KEY`` in your environment (or pass ``api_key``)
-      3. Fill in the ``generate()`` body below
+      2. ``ANTHROPIC_API_KEY`` set in environment (or pass ``api_key``)
 
-    Per project policy, no external API calls are made without explicit
-    approval.  This class intentionally raises ``NotImplementedError``
-    until the ``generate()`` body is implemented.
+    Example::
 
-    Example (after implementing)::
-
-        provider = AnthropicProvider(api_key="sk-ant-...")
+        provider = AnthropicProvider()  # reads ANTHROPIC_API_KEY from env
         pipeline = GodaiPipeline.create(llm_provider=provider)
     """
 
@@ -177,24 +172,40 @@ class AnthropicProvider:
         prompt: str,
         context: Dict[str, Any],
     ) -> str:
-        """
-        Generate a response using the Anthropic Messages API.
+        """Call the Anthropic Messages API and return the text response."""
+        client = self._get_client()
 
-        Implement this method with the real SDK call, e.g.:
-
-            client = self._get_client()
-            message = await client.messages.create(
-                model=model_id,
-                max_tokens=self._max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return message.content[0].text
-
-        Raises:
-            NotImplementedError: Until the generate() body is implemented.
-        """
-        raise NotImplementedError(
-            "AnthropicProvider.generate() is not yet implemented. "
-            "Fill in the SDK call in godai/providers.py and ensure "
-            "ANTHROPIC_API_KEY is set."
+        # ATHENA validation calls contain these keywords; respond with structured JSON
+        validation_keywords = {"verdict", "quality-assurance", "fact-check", "compliance"}
+        is_validation = any(kw in prompt.lower() for kw in validation_keywords)
+        system: str | None = (
+            'Respond ONLY with valid JSON: {"verdict":"pass"|"fail","confidence":0.0-1.0,"issues":[]}'
+            if is_validation else None
         )
+
+        _logger.debug(
+            "AnthropicProvider.generate(model=%s, prompt_len=%d, validation=%s)",
+            model_id, len(prompt), is_validation,
+        )
+
+        kwargs: Dict[str, Any] = {
+            "model": model_id,
+            "max_tokens": self._max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = system
+
+        try:
+            message = await client.messages.create(**kwargs)
+            return message.content[0].text
+        except Exception as exc:
+            try:
+                import anthropic as _ant  # type: ignore[import]
+                if isinstance(exc, _ant.APIError):
+                    raise RuntimeError(
+                        f"Anthropic API error ({type(exc).__name__}): {exc}"
+                    ) from exc
+            except ImportError:
+                pass
+            raise RuntimeError(f"AnthropicProvider.generate() failed: {exc}") from exc
