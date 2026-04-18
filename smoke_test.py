@@ -8,8 +8,13 @@ Tests every subsystem using the system's own runtime mechanics:
 - ContextOS knowledge-governance layer (Register, Log, Resolver)
 - FraPP API endpoints via HTTPX test client
 - MNEMOSYNE chain integrity checked after every scenario
+- Local LLM probe: Ollama + llama-cpp-python availability report
 
 Run: python smoke_test.py
+
+To activate local LLM:
+    bash scripts/install_local_llm.sh          # Ollama + llama3.2:3b
+    bash scripts/install_local_llm.sh --llamacpp  # llama-cpp-python + Phi-3
 """
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ from tempfile import TemporaryDirectory
 
 PASS = "\033[92m✓\033[0m"
 FAIL = "\033[91m✗\033[0m"
+INFO = "\033[93m·\033[0m"   # informational — does not affect exit code
 HEAD = "\033[1;94m"
 RST  = "\033[0m"
 
@@ -35,6 +41,14 @@ def check(name: str, condition: bool, detail: str = "") -> None:
     icon = PASS if condition else FAIL
     print(f"  {icon}  {name}" + (f" — {detail}" if detail else ""))
     _results.append((name, condition, detail))
+
+
+def probe(name: str, condition: bool, detail: str = "") -> None:
+    """Informational probe — never counted as a failure."""
+    icon = PASS if condition else INFO
+    label = "ready" if condition else "not installed"
+    suffix = f" — {detail}" if detail else f" — {label}"
+    print(f"  {icon}  {name}{suffix}")
 
 
 def section(title: str) -> None:
@@ -354,6 +368,64 @@ async def smoke_mnemosyne() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Local LLM probe (informational — never fails the suite)
+# ──────────────────────────────────────────────────────────────────────────────
+
+async def smoke_local_llm() -> None:
+    section("Local Offline LLM — Availability Probe")
+
+    from godai.providers import OllamaProvider, LlamaCppProvider
+
+    # ── Ollama ──────────────────────────────────────────────────────────────
+    provider = OllamaProvider()
+    reachable = await provider.health_check()
+    probe("Ollama server :11434", reachable,
+          "run: bash scripts/install_local_llm.sh" if not reachable else "")
+
+    if reachable:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as c:
+                r = await c.get("http://localhost:11434/api/tags")
+                models = [m["name"] for m in r.json().get("models", [])]
+            probe("Ollama models available", bool(models),
+                  ", ".join(models[:3]) if models else "run: ollama pull llama3.2:3b")
+            if models:
+                tag = models[0]
+                p = OllamaProvider(model=tag, max_tokens=32)
+                try:
+                    out = await p.generate("claude-haiku-4-5-20251001", "Say: OK", {})
+                    probe(f"Ollama generate({tag})", bool(out.strip()),
+                          out.strip()[:60] if out else "no output")
+                except Exception as exc:
+                    probe(f"Ollama generate({tag})", False, str(exc)[:80])
+        except Exception as exc:
+            probe("Ollama model check", False, str(exc)[:80])
+
+    # ── llama-cpp-python ─────────────────────────────────────────────────────
+    llamacpp_ok = False
+    try:
+        import llama_cpp  # type: ignore[import]  # noqa: F401
+        llamacpp_ok = True
+    except ImportError:
+        pass
+    probe("llama-cpp-python", llamacpp_ok,
+          "pip install llama-cpp-python" if not llamacpp_ok else "")
+
+    # Search for GGUF model
+    from pathlib import Path as _Path
+    gguf = None
+    for d in [_Path("models"), _Path.home() / ".frapp" / "models"]:
+        if d.exists():
+            found = list(d.glob("*.gguf"))
+            if found:
+                gguf = found[0]
+                break
+    probe("GGUF model file", gguf is not None,
+          str(gguf) if gguf else "bash scripts/install_local_llm.sh --llamacpp")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Summary
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -383,6 +455,7 @@ async def main() -> int:
     sections = [
         ("G.O.D.A.I. Pipeline",    smoke_godai()),
         ("MNEMOSYNE",              smoke_mnemosyne()),
+        ("Local LLM probe",        smoke_local_llm()),
     ]
 
     for label, coro in sections:

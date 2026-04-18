@@ -17,6 +17,13 @@ networkx>=3.0
 # ── Anthropic SDK (required for AnthropicProvider) ───────────
 anthropic>=0.40.0
 
+# ── Local / offline LLM (optional) ───────────────────────────
+# OllamaProvider uses httpx (already listed below) — no extra deps.
+# LlamaCppProvider requires llama-cpp-python (CPU/GPU):
+#   pip install llama-cpp-python
+#   CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python   # GPU
+# Install Ollama runtime: bash scripts/install_local_llm.sh
+
 # ── Testing ──────────────────────────────────────────────────
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
