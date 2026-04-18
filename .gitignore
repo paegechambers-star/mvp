@@ -20,3 +20,7 @@ dist/
 diagnostics/
 exports/
 logs/
+
+# Runtime databases (never commit — use Alembic migrations instead)
+*.db
+*.sqlite
