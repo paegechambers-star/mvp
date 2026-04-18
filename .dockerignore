@@ -1,0 +1,36 @@
+# Secrets and local state — never in image
+.env
+*.db
+*.sqlite
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python artifacts
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+dist/
+build/
+.venv
+venv/
+
+# Test / CI
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov/
+.github/
+
+# Docs
+docs/
+*.md
+
+# Dev tools
+.pre-commit-config.yaml
+.ruff.toml
+pyproject.toml
+Makefile

@@ -1,0 +1,27 @@
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    image: frapp-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////data/frapp.db}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["https://app.example.com"]}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENV=production
+    volumes:
+      - frapp_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/live')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  frapp_data:

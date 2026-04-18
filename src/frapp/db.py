@@ -1,7 +1,8 @@
 from sqlmodel import SQLModel, Session, create_engine
 
-# Für Demo-Zwecke SQLite im Arbeitsverzeichnis
-engine = create_engine("sqlite:///./frapp.db", echo=False)
+from .settings import settings
+
+engine = create_engine(settings.database_url, echo=False)
 
 
 def init_db() -> None:
