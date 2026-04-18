@@ -10,3 +10,4 @@ class Event(SQLModel, table=True):  # type: ignore[call-arg]
     ends_at: datetime
     location: Optional[str] = None
     all_day: bool = False
+    owner: Optional[str] = Field(default=None, index=True)  # GDPR Art. 17 — owner identifier

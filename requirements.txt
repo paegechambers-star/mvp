@@ -10,6 +10,10 @@ typer>=0.9.0
 
 # ── G.O.D.A.I. ───────────────────────────────────────────────
 pyyaml>=6.0
+pyjwt>=2.8.0                # JWT token signing for HERMES (G2)
+
+# ── Database drivers ──────────────────────────────────────────
+psycopg2-binary>=2.9.0      # PostgreSQL support (G3, optional — SQLite works without)
 
 # ── ContextOS ────────────────────────────────────────────────
 networkx>=3.0

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Security, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Security, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -80,12 +80,18 @@ async def _validation_exc(request, exc: RequestValidationError):
 
 
 # ── Pydantic schemas (Q7) ─────────────────────────────────────────────────────
+def get_caller_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[str]:
+    """Extract caller identity from X-User-ID header (used for GDPR scoping)."""
+    return x_user_id
+
+
 class EventCreate(BaseModel):
     title: str
     starts_at: datetime
     ends_at: datetime
     location: Optional[str] = None
     all_day: bool = False
+    owner: Optional[str] = None   # caller identity — set via X-User-ID or explicit field
 
 
 class EventUpdate(BaseModel):
@@ -103,6 +109,7 @@ class EventResponse(BaseModel):
     ends_at: datetime
     location: Optional[str]
     all_day: bool
+    owner: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -115,7 +122,11 @@ class PaginatedEvents(BaseModel):
 
 
 # ── Health endpoints (K5) ─────────────────────────────────────────────────────
-@app.get("/healthz/live", tags=["Health"], summary="Liveness probe")
+class LivenessResponse(BaseModel):
+    status: str
+
+
+@app.get("/healthz/live", response_model=LivenessResponse, tags=["Health"], summary="Liveness probe")
 def liveness():
     return {"status": "alive"}
 
@@ -170,8 +181,15 @@ def list_events(
     summary="Create a new event",
     dependencies=[Depends(require_api_key)],
 )
-def create_event(payload: EventCreate, session: Session = Depends(get_session)):
-    event = Event(**payload.model_dump())
+def create_event(
+    payload: EventCreate,
+    session: Session = Depends(get_session),
+    caller_id: Optional[str] = Depends(get_caller_id),
+):
+    data = payload.model_dump()
+    if data.get("owner") is None and caller_id:
+        data["owner"] = caller_id
+    event = Event(**data)
     session.add(event)
     session.commit()
     session.refresh(event)
@@ -228,6 +246,83 @@ def delete_event(event_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Event not found")
     session.delete(event)
     session.commit()
+
+
+# ── GDPR endpoints (Art. 15 / 17 / 20) ───────────────────────────────────────
+# All three endpoints require X-User-ID header to identify the data subject.
+
+class UserDataResponse(BaseModel):
+    user_id: str
+    events: List[EventResponse]
+    event_count: int
+    message: str = "Your data retrieved under GDPR Art. 15"
+
+
+@app.get(
+    "/v1/me/data",
+    response_model=UserDataResponse,
+    tags=["GDPR"],
+    summary="Art. 15 — Right of access: retrieve all your stored data",
+    dependencies=[Depends(require_api_key)],
+)
+def gdpr_get_data(
+    caller_id: Optional[str] = Depends(get_caller_id),
+    session: Session = Depends(get_session),
+):
+    if not caller_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header required for GDPR data access")
+    events = session.exec(select(Event).where(Event.owner == caller_id)).all()
+    return UserDataResponse(
+        user_id=caller_id,
+        events=[EventResponse.model_validate(e) for e in events],
+        event_count=len(events),
+    )
+
+
+@app.delete(
+    "/v1/me/data",
+    status_code=status.HTTP_200_OK,
+    tags=["GDPR"],
+    summary="Art. 17 — Right to erasure: delete all your stored data",
+    dependencies=[Depends(require_api_key)],
+)
+def gdpr_delete_data(
+    caller_id: Optional[str] = Depends(get_caller_id),
+    session: Session = Depends(get_session),
+):
+    if not caller_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header required for GDPR erasure")
+    events = session.exec(select(Event).where(Event.owner == caller_id)).all()
+    deleted = len(events)
+    for event in events:
+        session.delete(event)
+    session.commit()
+    return {
+        "user_id": caller_id,
+        "deleted_events": deleted,
+        "message": "All your data has been erased under GDPR Art. 17",
+    }
+
+
+@app.get(
+    "/v1/me/export",
+    tags=["GDPR"],
+    summary="Art. 20 — Data portability: export all your data as JSON",
+    dependencies=[Depends(require_api_key)],
+)
+def gdpr_export_data(
+    caller_id: Optional[str] = Depends(get_caller_id),
+    session: Session = Depends(get_session),
+):
+    if not caller_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header required for GDPR export")
+    events = session.exec(select(Event).where(Event.owner == caller_id)).all()
+    return {
+        "export_format": "application/json",
+        "gdpr_article": "Art. 20 — Right to data portability",
+        "user_id": caller_id,
+        "events": [EventResponse.model_validate(e).model_dump(mode="json") for e in events],
+    }
 
 
 # ── Include G.O.D.A.I. router (B4) ───────────────────────────────────────────

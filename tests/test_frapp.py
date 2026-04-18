@@ -175,6 +175,57 @@ def test_godai_audit_returns_entries() -> None:
 
 
 # ---------------------------------------------------------------------------
+# GDPR endpoints
+# ---------------------------------------------------------------------------
+
+USER_HDR = {**AUTH, "X-User-ID": "gdpr-test-user"}
+
+
+def test_gdpr_get_requires_user_id_header() -> None:
+    r = client.get("/v1/me/data", headers=AUTH)
+    assert r.status_code == 400
+
+
+def test_gdpr_get_data_returns_user_events() -> None:
+    payload = {
+        "title": "My Private Event",
+        "starts_at": "2026-09-01T10:00:00",
+        "ends_at": "2026-09-01T11:00:00",
+        "owner": "gdpr-test-user",
+    }
+    client.post("/v1/events", json=payload, headers=AUTH)
+    r = client.get("/v1/me/data", headers=USER_HDR)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["user_id"] == "gdpr-test-user"
+    assert body["event_count"] >= 1
+
+
+def test_gdpr_export_returns_portable_json() -> None:
+    r = client.get("/v1/me/export", headers=USER_HDR)
+    assert r.status_code == 200
+    body = r.json()
+    assert "events" in body
+    assert body["gdpr_article"].startswith("Art. 20")
+
+
+def test_gdpr_delete_erases_user_data() -> None:
+    payload = {
+        "title": "To Be Deleted",
+        "starts_at": "2026-10-01T08:00:00",
+        "ends_at": "2026-10-01T09:00:00",
+        "owner": "delete-test-user",
+    }
+    client.post("/v1/events", json=payload, headers=AUTH)
+    del_hdrs = {**AUTH, "X-User-ID": "delete-test-user"}
+    r = client.delete("/v1/me/data", headers=del_hdrs)
+    assert r.status_code == 200
+    assert r.json()["deleted_events"] >= 1
+    r2 = client.get("/v1/me/data", headers=del_hdrs)
+    assert r2.json()["event_count"] == 0
+
+
+# ---------------------------------------------------------------------------
 # hello module
 # ---------------------------------------------------------------------------
 

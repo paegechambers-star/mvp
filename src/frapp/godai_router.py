@@ -5,11 +5,15 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from godai.models.request import TrustLevel
+from godai.modules.hermes import create_token
 from godai.pipeline import GodaiPipeline
 from godai.providers import EchoProvider
+
+from .settings import settings
 
 _logger = logging.getLogger("frapp.godai_router")
 
@@ -22,9 +26,29 @@ _pipeline: Optional[GodaiPipeline] = None
 def _get_pipeline() -> GodaiPipeline:
     global _pipeline
     if _pipeline is None:
-        _pipeline = GodaiPipeline.create(llm_provider=EchoProvider())
-        _logger.info("G.O.D.A.I. pipeline initialised (EchoProvider)")
+        _pipeline = GodaiPipeline.create(
+            llm_provider=EchoProvider(),
+            secret_key=settings.secret_key,
+            dev_mode=(settings.env != "production"),
+        )
+        _logger.info(
+            "G.O.D.A.I. pipeline initialised (EchoProvider, dev_mode=%s)",
+            settings.env != "production",
+        )
     return _pipeline
+
+
+class TokenRequest(BaseModel):
+    user_id: str
+    trust_level: str = "L1"   # "L1" | "L2" | "L3"
+    expires_hours: int = 24
+
+
+class TokenResponse(BaseModel):
+    token: str
+    user_id: str
+    trust_level: str
+    expires_hours: int
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -85,7 +109,13 @@ async def godai_query(req: QueryRequest):
     )
 
 
-@router.get("/status", summary="Pipeline health and audit chain status")
+class StatusResponse(BaseModel):
+    status: str
+    audit_entries: int
+    chain_valid: bool
+
+
+@router.get("/status", response_model=StatusResponse, summary="Pipeline health and audit chain status")
 def godai_status():
     pipeline = _get_pipeline()
     try:
@@ -125,4 +155,35 @@ def godai_audit(limit: int = 50, offset: int = 0):
         ],
         total=len(all_entries),
         chain_valid=chain_valid,
+    )
+
+
+@router.post(
+    "/token",
+    response_model=TokenResponse,
+    summary="Issue a signed JWT for G.O.D.A.I. pipeline access",
+    description=(
+        "Returns a signed JWT that can be passed as the `token` field in `/v1/godai/query`. "
+        "Requires the `X-API-Key` header (same key used for all other endpoints)."
+    ),
+)
+def issue_token(req: TokenRequest):
+    try:
+        trust_level = TrustLevel[req.trust_level]
+    except KeyError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trust_level '{req.trust_level}'. Must be L1, L2, or L3.",
+        )
+    token = create_token(
+        user_id=req.user_id,
+        trust_level=trust_level,
+        secret_key=settings.secret_key,
+        expires_hours=req.expires_hours,
+    )
+    return TokenResponse(
+        token=token,
+        user_id=req.user_id,
+        trust_level=req.trust_level,
+        expires_hours=req.expires_hours,
     )

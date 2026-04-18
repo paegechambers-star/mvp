@@ -147,6 +147,8 @@ class GodaiPipeline:
         rate_limit: int = 100,
         validation_strategy: str = "consistency_check",
         confidence_threshold: float = 0.7,
+        secret_key: str = "dev-secret",
+        dev_mode: bool = True,
     ) -> "GodaiPipeline":
         """
         Convenience factory that wires all five modules with a shared MNEMOSYNE.
@@ -168,7 +170,7 @@ class GodaiPipeline:
             Fully wired :class:`GodaiPipeline` instance.
         """
         mnemosyne = Mnemosyne()
-        hermes = Hermes(mnemosyne, rate_limit=rate_limit)
+        hermes = Hermes(mnemosyne, rate_limit=rate_limit, secret_key=secret_key, dev_mode=dev_mode)
         themis = Themis(mnemosyne, policy_path=policy_path)
         apollon = Apollon(mnemosyne, routing_path=routing_path)
         athena = Athena(
