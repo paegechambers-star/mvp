@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from godai.models.audit import AuditEvent
 from godai.models.request import InternalRequest
