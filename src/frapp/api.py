@@ -17,6 +17,7 @@ from .db import get_session, init_db
 from .logging_config import configure_logging
 from .metrics import setup_metrics
 from .models import Event, UsageRecord
+from .rate_limiter import limiter, rate_limit_exceeded_handler  # noqa: F401
 from .settings import settings
 
 
@@ -39,6 +40,15 @@ app = FastAPI(
 
 # ── Prometheus metrics (Q3) ───────────────────────────────────────────────────
 setup_metrics(app)
+
+# ── Rate limiting (K2) — register limiter with app state ─────────────────────
+if limiter is not None:
+    try:
+        from slowapi.errors import RateLimitExceeded  # type: ignore[import]
+        app.state.limiter = limiter
+        app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+    except ImportError:
+        pass
 
 # ── CORS (B5) ────────────────────────────────────────────────────────────────
 app.add_middleware(

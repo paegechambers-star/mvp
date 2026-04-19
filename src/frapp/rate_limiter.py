@@ -1,64 +1,58 @@
 """
 HTTP-level rate limiting for FraPP API.
 
-Uses slowapi with Redis storage when REDIS_URL is configured, falls back to
-in-memory storage for single-process / dev environments.
+Slowapi with Redis when REDIS_URL is set, in-memory otherwise.
+The module-level `limiter` object is the singleton — import it directly.
 
-Apply via the @limiter.limit() decorator on FastAPI route handlers, or use
-`limit_middleware` as a starlette middleware.
+Register with FastAPI app:
+    from frapp.rate_limiter import limiter, rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-Limits:
-  - /v1/godai/query  : 100 requests / minute per API key
-  - general endpoints: 300 requests / minute per IP
+Then decorate endpoints:
+    @router.post("/query")
+    @limiter.limit("100/minute")
+    async def query(request: Request, ...):
+        ...
 """
 from __future__ import annotations
 
 import logging
-from typing import Callable
 
 from fastapi import Request
+from fastapi.responses import JSONResponse
 
 _logger = logging.getLogger("frapp.rate_limiter")
 
-# ── Lazy initialisation so settings are resolved at import time ─────────────
 
-_limiter = None
-
-
-def get_limiter():
-    global _limiter
-    if _limiter is not None:
-        return _limiter
-
+def _build_limiter():
     try:
         from slowapi import Limiter  # type: ignore[import]
         from frapp.settings import settings
 
-        storage_uri = settings.redis_url if settings.redis_url else "memory://"
-
         def _key_from_api_key(request: Request) -> str:
-            key = request.headers.get("X-API-Key") or request.client.host
-            return key
+            return request.headers.get("X-API-Key") or (request.client.host if request.client else "unknown")
 
-        _limiter = Limiter(key_func=_key_from_api_key, storage_uri=storage_uri)
+        storage_uri = settings.redis_url if settings.redis_url else "memory://"
+        lim = Limiter(key_func=_key_from_api_key, storage_uri=storage_uri)
         backend = "Redis" if settings.redis_url else "in-memory"
-        _logger.info("Rate limiter initialised (%s backend)", backend)
-        return _limiter
-
+        _logger.info("Rate limiter initialised (%s)", backend)
+        return lim
     except ImportError:
-        _logger.warning(
-            "slowapi not installed — rate limiting disabled. "
-            "Install with: pip install slowapi redis"
-        )
         return None
 
 
-def rate_limit(limit_string: str) -> Callable:
-    """Decorator factory — returns the slowapi limit decorator or a no-op."""
-    lim = get_limiter()
-    if lim is not None:
-        return lim.limit(limit_string)
-    # No-op decorator when slowapi is not installed
-    def _noop(fn: Callable) -> Callable:
-        return fn
-    return _noop
+limiter = _build_limiter()
+
+
+async def rate_limit_exceeded_handler(request: Request, exc) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={
+            "type": "https://httpstatuses.com/429",
+            "title": "Too Many Requests",
+            "status": 429,
+            "detail": "Rate limit exceeded. Slow down and retry.",
+        },
+    )
