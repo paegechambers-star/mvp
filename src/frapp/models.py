@@ -1,6 +1,7 @@
-from typing import Optional
 from datetime import datetime
-from sqlmodel import SQLModel, Field
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
 
 
 class Event(SQLModel, table=True):  # type: ignore[call-arg]
@@ -10,4 +11,15 @@ class Event(SQLModel, table=True):  # type: ignore[call-arg]
     ends_at: datetime
     location: Optional[str] = None
     all_day: bool = False
-    owner: Optional[str] = Field(default=None, index=True)  # GDPR Art. 17 — owner identifier
+    owner: Optional[str] = Field(default=None, index=True)
+    tenant_id: Optional[str] = Field(default=None, index=True)
+
+
+class UsageRecord(SQLModel, table=True):  # type: ignore[call-arg]
+    """Per-tenant request metering — used for billing and capacity planning."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tenant_id: str = Field(index=True)
+    endpoint: str
+    method: str
+    status_code: int
+    recorded_at: datetime = Field(default_factory=datetime.utcnow)

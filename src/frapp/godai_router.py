@@ -1,17 +1,19 @@
-"""FastAPI router exposing G.O.D.A.I. pipeline over HTTP (B4)."""
+"""FastAPI router exposing G.O.D.A.I. pipeline over HTTP (B4 + Q4 SSE streaming)."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from godai.models.request import TrustLevel
 from godai.modules.hermes import create_token
 from godai.pipeline import GodaiPipeline
-from godai.providers import EchoProvider
+from godai.providers import AnthropicProvider, EchoProvider
 
 from .settings import settings
 
@@ -26,21 +28,29 @@ _pipeline: Optional[GodaiPipeline] = None
 def _get_pipeline() -> GodaiPipeline:
     global _pipeline
     if _pipeline is None:
+        if settings.anthropic_api_key:
+            provider = AnthropicProvider(
+                api_key=settings.anthropic_api_key,
+                max_tokens=2048,
+            )
+            _logger.info("G.O.D.A.I. pipeline initialised (AnthropicProvider, claude-opus-4-7)")
+        else:
+            provider = EchoProvider()
+            _logger.info(
+                "G.O.D.A.I. pipeline initialised (EchoProvider, dev_mode=%s)",
+                settings.env != "production",
+            )
         _pipeline = GodaiPipeline.create(
-            llm_provider=EchoProvider(),
+            llm_provider=provider,
             secret_key=settings.secret_key,
             dev_mode=(settings.env != "production"),
-        )
-        _logger.info(
-            "G.O.D.A.I. pipeline initialised (EchoProvider, dev_mode=%s)",
-            settings.env != "production",
         )
     return _pipeline
 
 
 class TokenRequest(BaseModel):
     user_id: str
-    trust_level: str = "L1"   # "L1" | "L2" | "L3"
+    trust_level: str = "L1"
     expires_hours: int = 24
 
 
@@ -50,8 +60,6 @@ class TokenResponse(BaseModel):
     trust_level: str
     expires_hours: int
 
-
-# ── Schemas ───────────────────────────────────────────────────────────────────
 
 class QueryRequest(BaseModel):
     token: Optional[str] = None
@@ -109,10 +117,59 @@ async def godai_query(req: QueryRequest):
     )
 
 
+@router.post(
+    "/stream",
+    summary="Submit a query and receive the response as a Server-Sent Events stream (Q4)",
+    response_class=StreamingResponse,
+)
+async def godai_stream(req: QueryRequest):
+    """
+    Streams the G.O.D.A.I. pipeline response as SSE.
+
+    Each event is a JSON object:
+      data: {"chunk": "<text>"}
+      data: {"done": true, "success": bool, "model_id": str|null}
+
+    Connect with EventSource or curl:
+      curl -N -X POST /v1/godai/stream \\
+           -H "X-API-Key: dev-key" \\
+           -H "Content-Type: application/json" \\
+           -d '{"user_id": "alice", "query": "...", ...}'
+    """
+    pipeline = _get_pipeline()
+
+    async def _sse() -> AsyncIterator[str]:
+        result = await pipeline.process(
+            token=req.token,
+            user_id=req.user_id,
+            protocol=req.protocol,
+            query=req.query,
+            context=req.context,
+        )
+        if result.output:
+            # Chunk at word boundaries for natural streaming feel
+            words = result.output.split(" ")
+            for i, word in enumerate(words):
+                chunk = word if i == 0 else " " + word
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        model_id = result.route_decision.model_id if result.route_decision else None
+        yield f"data: {json.dumps({'done': True, 'success': result.success, 'model_id': model_id})}\n\n"
+
+    return StreamingResponse(
+        _sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 class StatusResponse(BaseModel):
     status: str
     audit_entries: int
     chain_valid: bool
+    provider: str
 
 
 @router.get("/status", response_model=StatusResponse, summary="Pipeline health and audit chain status")
@@ -122,10 +179,14 @@ def godai_status():
         chain_valid = pipeline.mnemosyne.verify_chain()
     except Exception:
         chain_valid = False
+    provider_name = (
+        "AnthropicProvider" if settings.anthropic_api_key else "EchoProvider"
+    )
     return {
         "status": "ok",
         "audit_entries": len(pipeline.mnemosyne),
         "chain_valid": chain_valid,
+        "provider": provider_name,
     }
 
 
@@ -137,7 +198,7 @@ def godai_status():
 def godai_audit(limit: int = 50, offset: int = 0):
     pipeline = _get_pipeline()
     all_entries = pipeline.mnemosyne.entries
-    page = all_entries[offset : offset + limit]
+    page = all_entries[offset: offset + limit]
     try:
         chain_valid = pipeline.mnemosyne.verify_chain()
     except Exception:
@@ -162,10 +223,6 @@ def godai_audit(limit: int = 50, offset: int = 0):
     "/token",
     response_model=TokenResponse,
     summary="Issue a signed JWT for G.O.D.A.I. pipeline access",
-    description=(
-        "Returns a signed JWT that can be passed as the `token` field in `/v1/godai/query`. "
-        "Requires the `X-API-Key` header (same key used for all other endpoints)."
-    ),
 )
 def issue_token(req: TokenRequest):
     try:

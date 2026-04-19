@@ -1,11 +1,11 @@
-"""FraPP FastAPI application — Sprint 1: auth, CORS, full CRUD, G.O.D.A.I. HTTP."""
+"""FraPP FastAPI application — SaaS-ready: auth, CORS, CRUD, G.O.D.A.I., metrics, metering."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Security, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Security, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,12 +14,18 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from .db import get_session, init_db
-from .models import Event
+from .logging_config import configure_logging
+from .metrics import setup_metrics
+from .models import Event, UsageRecord
 from .settings import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging(
+        log_level=settings.log_level,
+        json_logs=(settings.env == "production"),
+    )
     init_db()
     yield
 
@@ -30,6 +36,9 @@ app = FastAPI(
     lifespan=lifespan,
     description="FraPP — AI-governed event management API powered by G.O.D.A.I.",
 )
+
+# ── Prometheus metrics (Q3) ───────────────────────────────────────────────────
+setup_metrics(app)
 
 # ── CORS (B5) ────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -79,19 +88,46 @@ async def _validation_exc(request, exc: RequestValidationError):
     )
 
 
-# ── Pydantic schemas (Q7) ─────────────────────────────────────────────────────
+# ── Header helpers ────────────────────────────────────────────────────────────
 def get_caller_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[str]:
     """Extract caller identity from X-User-ID header (used for GDPR scoping)."""
     return x_user_id
 
 
+def get_tenant_id(x_tenant_id: Optional[str] = Header(default=None)) -> Optional[str]:
+    """Extract tenant from X-Tenant-ID header for row-level data isolation (BR1)."""
+    return x_tenant_id
+
+
+# ── Usage metering middleware (BR4) ──────────────────────────────────────────
+@app.middleware("http")
+async def _meter_requests(request: Request, call_next):
+    response = await call_next(request)
+    tenant_id = request.headers.get("X-Tenant-ID")
+    if tenant_id and request.url.path.startswith("/v1/"):
+        try:
+            from .db import engine as _engine
+            with Session(_engine) as _s:
+                _s.add(UsageRecord(
+                    tenant_id=tenant_id,
+                    endpoint=request.url.path,
+                    method=request.method,
+                    status_code=response.status_code,
+                ))
+                _s.commit()
+        except Exception:
+            pass  # never crash the request pipeline on metering failure
+    return response
+
+
+# ── Pydantic schemas (Q7) ─────────────────────────────────────────────────────
 class EventCreate(BaseModel):
     title: str
     starts_at: datetime
     ends_at: datetime
     location: Optional[str] = None
     all_day: bool = False
-    owner: Optional[str] = None   # caller identity — set via X-User-ID or explicit field
+    owner: Optional[str] = None
 
 
 class EventUpdate(BaseModel):
@@ -110,6 +146,7 @@ class EventResponse(BaseModel):
     location: Optional[str]
     all_day: bool
     owner: Optional[str] = None
+    tenant_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -162,9 +199,15 @@ def list_events(
     limit: int = 50,
     offset: int = 0,
     session: Session = Depends(get_session),
+    tenant_id: Optional[str] = Depends(get_tenant_id),
 ):
-    total = session.exec(select(func.count()).select_from(Event)).one()
-    events = session.exec(select(Event).offset(offset).limit(limit)).all()
+    q = select(Event)
+    cq = select(func.count()).select_from(Event)
+    if tenant_id:
+        q = q.where(Event.tenant_id == tenant_id)
+        cq = cq.where(Event.tenant_id == tenant_id)
+    total = session.exec(cq).one()
+    events = session.exec(q.offset(offset).limit(limit)).all()
     return PaginatedEvents(
         data=[EventResponse.model_validate(e) for e in events],
         total=total,
@@ -185,10 +228,13 @@ def create_event(
     payload: EventCreate,
     session: Session = Depends(get_session),
     caller_id: Optional[str] = Depends(get_caller_id),
+    tenant_id: Optional[str] = Depends(get_tenant_id),
 ):
     data = payload.model_dump()
     if data.get("owner") is None and caller_id:
         data["owner"] = caller_id
+    if tenant_id:
+        data["tenant_id"] = tenant_id
     event = Event(**data)
     session.add(event)
     session.commit()
@@ -249,8 +295,6 @@ def delete_event(event_id: int, session: Session = Depends(get_session)):
 
 
 # ── GDPR endpoints (Art. 15 / 17 / 20) ───────────────────────────────────────
-# All three endpoints require X-User-ID header to identify the data subject.
-
 class UserDataResponse(BaseModel):
     user_id: str
     events: List[EventResponse]
@@ -322,6 +366,39 @@ def gdpr_export_data(
         "gdpr_article": "Art. 20 — Right to data portability",
         "user_id": caller_id,
         "events": [EventResponse.model_validate(e).model_dump(mode="json") for e in events],
+    }
+
+
+# ── Admin: Usage metering (BR4) ───────────────────────────────────────────────
+@app.get(
+    "/v1/admin/usage",
+    tags=["Admin"],
+    summary="Per-tenant request usage for billing and capacity planning",
+    dependencies=[Depends(require_api_key)],
+)
+def admin_usage(
+    tenant_id: Optional[str] = None,
+    session: Session = Depends(get_session),
+):
+    q = select(UsageRecord)
+    if tenant_id:
+        q = q.where(UsageRecord.tenant_id == tenant_id)
+    records = session.exec(q).all()
+
+    by_tenant: dict = {}
+    for r in records:
+        if r.tenant_id not in by_tenant:
+            by_tenant[r.tenant_id] = {"total_requests": 0, "endpoints": {}}
+        by_tenant[r.tenant_id]["total_requests"] += 1
+        ep = r.endpoint
+        by_tenant[r.tenant_id]["endpoints"][ep] = (
+            by_tenant[r.tenant_id]["endpoints"].get(ep, 0) + 1
+        )
+
+    return {
+        "tenants": by_tenant,
+        "total_tenants": len(by_tenant),
+        "total_requests": sum(v["total_requests"] for v in by_tenant.values()),
     }
 
 
