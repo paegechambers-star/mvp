@@ -20,3 +20,5 @@ dist/
 diagnostics/
 exports/
 logs/
+!godai/logs/
+!godai/logs/.gitignore

@@ -8,7 +8,7 @@ from typing import Any, Dict
 from uuid import UUID
 
 # Valid source module identifiers — used for consistency checks in tests.
-VALID_SOURCE_MODULES = frozenset({"HERMES", "THEMIS", "APOLLON", "ATHENA", "PIPELINE"})
+VALID_SOURCE_MODULES = frozenset({"HERMES", "THEMIS", "APOLLON", "ATHENA", "PIPELINE", "DISPATCH_BRIDGE"})
 
 
 @dataclass
