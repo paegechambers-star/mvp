@@ -1,91 +1,99 @@
 # Mobile Dispatch Skill
 
-Listen for commands sent from a mobile phone and execute them as Claude Code tasks on the desktop.
+Listen for messages sent from the browser chat (or any mobile client) and reply as Claude Code running on the desktop.
 
 ## What this skill does
 
-1. Connects to the FraPP mobile-dispatch API.
-2. Polls (or holds a WebSocket connection) for incoming commands from mobile clients.
-3. Executes each command as a Claude Code task in the current project.
-4. Posts the result back so the mobile client can read it.
+Runs a conversation loop: waits for messages from `/chat` (or any HTTP client), executes each one using Claude Code tools, and sends the result back so it appears in the chat UI.
 
 ## Usage
 
 ```
-/mobile-dispatch [--server <URL>] [--token <bearer-token>] [--once]
+/mobile-dispatch [--server <URL>] [--token <token>] [--once]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--server` | `http://localhost:8000` | Base URL of the FraPP server |
-| `--token` | `$MOBILE_DISPATCH_TOKEN` | Bearer token (L1+ trust) |
-| `--once` | off | Process one pending command, then exit (useful for CI/cron) |
+| `--token` | `$MOBILE_DISPATCH_TOKEN` | Bearer token sent with every request |
+| `--once` | off | Handle one pending message then exit |
 
-## How it works
+If `$MOBILE_DISPATCH_TOKEN` is not set, use any string prefixed with `basic-` (e.g. `basic-dev`).
 
-```
-Mobile phone
-  → POST /mobile/dispatch  {"payload": "run tests", "user_id": "alice"}
-      ↓
-  FraPP / HERMES (auth + rate-limit + audit)
-      ↓
-  DispatchBridge queue
-      ↓
-Desktop Claude (this skill)
-  → picks up command
-  → executes it (Bash / Edit / Read / etc.)
-  → POST /mobile/result/{command_id}  {"result": "✓ 42 tests passed"}
-      ↓
-Mobile phone
-  → GET /mobile/result/{command_id}  → reads the result
+## Execution steps
+
+When this skill is invoked, run the following loop **using Bash**:
+
+### 1. Read config
+
+```bash
+SERVER="${ARGUMENTS_server:-${MOBILE_DISPATCH_SERVER:-http://localhost:8000}}"
+TOKEN="${ARGUMENTS_token:-${MOBILE_DISPATCH_TOKEN:-basic-dev}}"
+ONCE="${ARGUMENTS_once:-false}"
 ```
 
-## Steps performed by this skill
+### 2. Announce readiness
 
-1. **Authenticate** — read token from `--token` or `$MOBILE_DISPATCH_TOKEN`.
-2. **Poll** — `GET /mobile/pending` (Authorization: Bearer <token>).
-3. **Execute** — for each pending command, interpret `payload` as a natural-language task and carry it out using available Claude Code tools.
-4. **Return result** — `POST /mobile/result/{command_id}` with the outcome.
-5. **Loop** — repeat from step 2 unless `--once` was passed.
+Print to the terminal so the user knows the agent is live:
 
-## Execution instructions
-
-When invoked, perform the following steps exactly:
-
-```python
-import os, json, time, subprocess, urllib.request
-
-SERVER  = "$ARGUMENTS_server" or "http://localhost:8000"
-TOKEN   = "$ARGUMENTS_token"  or os.environ.get("MOBILE_DISPATCH_TOKEN", "")
-ONCE    = "$ARGUMENTS_once"   == "true"
-HEADERS = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
-
-def http(method, path, body=None):
-    url  = SERVER.rstrip("/") + path
-    data = json.dumps(body).encode() if body else None
-    req  = urllib.request.Request(url, data=data, headers=HEADERS, method=method)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
-
-while True:
-    resp = http("GET", "/mobile/pending")
-    for cmd in resp.get("commands", []):
-        cid     = cmd["command_id"]
-        payload = cmd["payload"]
-        # --- hand payload to Claude Code tools for execution ---
-        # result is collected from tool outputs
-        result = f"Executed: {payload}"   # Claude Code replaces this with real output
-        http("POST", f"/mobile/result/{cid}", {"result": result, "agent_id": "desktop-claude"})
-    if ONCE:
-        break
-    time.sleep(5)
+```
+╔══════════════════════════════════════════╗
+║  Desktop Claude — Dispatch Listener      ║
+║  Server : <SERVER>                       ║
+║  Token  : <TOKEN prefix>****             ║
+║  Chat   : <SERVER>/chat                  ║
+╚══════════════════════════════════════════╝
+Waiting for messages from chat…
 ```
 
-> **Note:** Claude Code will replace the placeholder result line with the actual output of the tools it runs in response to `payload`.
+### 3. Poll and respond
+
+Repeat forever (or once if `--once`):
+
+```bash
+# Fetch pending commands
+PENDING=$(curl -sf -H "Authorization: Bearer $TOKEN" "$SERVER/mobile/pending")
+
+# For each command (iterate with jq or python -c):
+#   command_id = .commands[].command_id
+#   payload    = .commands[].payload
+#   user_id    = .commands[].user_id
+
+# For each pending command:
+echo "──────────────────────────────────────"
+echo "From : $user_id"
+echo "Msg  : $payload"
+echo "ID   : $command_id"
+echo "──────────────────────────────────────"
+
+# Execute the payload as a Claude Code task using the appropriate tools
+# (Read files, Bash, Edit, Grep, etc.), then collect the output as RESULT.
+
+# Post the result back
+curl -sf -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"result\": \"$RESULT\", \"agent_id\": \"desktop-claude\"}" \
+  "$SERVER/mobile/result/$command_id"
+
+echo "✓ Reply sent"
+
+sleep 3   # poll interval
+```
+
+### 4. Handle `--once`
+
+If `--once` is set, exit after processing the first batch (even if the queue is empty).
+
+## Important: executing payloads
+
+The `payload` field is a natural-language task from the chat user. Treat it exactly as you would treat a user message in normal chat: use your tools (Bash, Read, Edit, Grep, Write, etc.) to complete the task, collect the output, and use that as `RESULT`.
+
+Keep the result concise (fits comfortably on a phone screen). Use markdown if it helps readability.
 
 ## Security notes
 
-- The bearer token controls trust level: prefix `basic-` (L1), `elevated-` (L2), `internal-` (L3).
-- All dispatched commands and results are recorded in MNEMOSYNE (immutable audit log).
-- Commands expire after their `ttl_seconds` (default 300 s / 5 min).
-- Use `elevated-` or `internal-` tokens only on trusted networks.
+- Token prefix controls trust: `basic-` (L1), `elevated-` (L2), `internal-` (L3).
+- All messages and results are recorded in MNEMOSYNE (immutable audit log).
+- Messages expire after `ttl_seconds` (default 5 min) if the desktop agent is offline.
+- Open `<SERVER>/chat` in any browser to start chatting.
