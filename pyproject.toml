@@ -21,6 +21,10 @@ dev = [
     "black>=23.0.0",
     "mypy>=1.0.0",
 ]
+audio = [
+    "faster-whisper>=1.0.0",
+    "mutagen>=1.47.0",
+]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
