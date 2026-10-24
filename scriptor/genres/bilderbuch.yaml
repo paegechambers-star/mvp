@@ -1,0 +1,31 @@
+id: bilderbuch
+name: "Bilderbuch (3–6 Jahre)"
+fiction: true
+audience: "Vorlesekinder 3–6 Jahre + vorlesende Erwachsene"
+target_words: {min: 300, max: 1000}
+chapters: {default: 12, words_min: 20, words_max: 90}
+unit_label: "Doppelseite"
+pov_default: "3. Person, nah an der Hauptfigur"
+structure:
+  - {beat: "Welt & Figur", share: 0.15, purpose: "Hauptfigur + ihr Wunsch auf der ersten Doppelseite"}
+  - {beat: "Problem", share: 0.15, purpose: "Konkretes, kindgerechtes Hindernis"}
+  - {beat: "Drei Versuche", share: 0.4, purpose: "Rule of Three, jeder Versuch scheitert anders, Wiederholungsformel"}
+  - {beat: "Wendepunkt", share: 0.15, purpose: "Figur löst das Problem selbst (nicht der Erwachsene)"}
+  - {beat: "Heimkehr", share: 0.15, purpose: "Warmer Abschluss, Echo der ersten Seite"}
+style_rules:
+  - "Kurze Sätze, max. ~12 Wörter, konkrete Wörter statt Abstrakta"
+  - "Wiederholungsformel / Refrain, der zum Mitsprechen einlädt"
+  - "Rhythmus und Klang laut gelesen prüfen; Lautmalerei erlaubt"
+  - "Text lässt Raum für das Bild: nichts beschreiben, was die Illustration zeigt"
+  - "Pro Doppelseite ein Illustrationshinweis in [ILLU: ...]"
+  - "Page-Turn-Momente: Doppelseite endet mit offener Frage oder Spannung"
+avoid:
+  - "Moralpredigt am Ende"
+  - "Erwachsene lösen das Problem"
+  - "Ironie, die Kinder nicht verstehen"
+qa_checklist:
+  - "Hat die Hauptfigur einen klaren Wunsch auf Seite 1?"
+  - "Löst das Kind/die Figur das Problem selbst?"
+  - "Gibt es einen Refrain / ein Wiederholungsmuster?"
+  - "Funktioniert jeder Satz laut vorgelesen?"
+  - "Hat jede Doppelseite einen Illustrationshinweis und einen Page-Turn?"

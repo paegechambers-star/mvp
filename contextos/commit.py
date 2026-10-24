@@ -9,7 +9,7 @@ change that flows into the ContextOS internal log.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 from contextos.types import Actor, CommitBlock, CommitOp
@@ -20,11 +20,11 @@ def make_commit(
     target_id: str,
     actor: Actor,
     new_content_hash: str,
-    prev_content_hash: Optional[str] = None,
-    delta: Optional[Dict[str, Any]] = None,
+    prev_content_hash: str | None = None,
+    delta: dict[str, Any] | None = None,
     *,
-    timestamp: Optional[datetime] = None,
-    commit_id: Optional[str] = None,
+    timestamp: datetime | None = None,
+    commit_id: str | None = None,
 ) -> CommitBlock:
     """
     Create an immutable CommitBlock for a register state-transition.
@@ -56,7 +56,7 @@ def patch_commit(
     actor: Actor,
     prev_hash: str,
     new_hash: str,
-    changed_fields: Optional[Dict[str, Any]] = None,
+    changed_fields: dict[str, Any] | None = None,
 ) -> CommitBlock:
     """Convenience factory for a PATCH operation on a WORK entry."""
     return make_commit(

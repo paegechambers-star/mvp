@@ -22,10 +22,10 @@ from __future__ import annotations
 import asyncio
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_thread: Optional[threading.Thread] = None
+_loop: asyncio.AbstractEventLoop | None = None
+_thread: threading.Thread | None = None
 _lock: threading.Lock = threading.Lock()
 
 _DEFAULT_TIMEOUT: float = 2.0
@@ -49,7 +49,7 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 def audit_to_mnemosyne(
     mnemosyne: Any,
     event_type: str,
-    event_data: Dict[str, Any],
+    event_data: dict[str, Any],
     timeout: float = _DEFAULT_TIMEOUT,
 ) -> None:
     """
@@ -81,13 +81,9 @@ def audit_to_mnemosyne(
     try:
         future.result(timeout=timeout)
     except TimeoutError as exc:
-        raise RuntimeError(
-            f"MNEMOSYNE audit timed out after {timeout}s (fail-closed)"
-        ) from exc
+        raise RuntimeError(f"MNEMOSYNE audit timed out after {timeout}s (fail-closed)") from exc
     except Exception as exc:
-        raise RuntimeError(
-            f"MNEMOSYNE audit failed (fail-closed): {exc}"
-        ) from exc
+        raise RuntimeError(f"MNEMOSYNE audit failed (fail-closed): {exc}") from exc
 
 
 def shutdown_bridge() -> None:

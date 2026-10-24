@@ -14,7 +14,6 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from contextos.types import (
     BASE36,
@@ -126,7 +125,7 @@ def parse_id(id_str: str) -> ContextID:
 # ─────────────────────────────── Time bucket ─────────────────────────────────
 
 
-def encode_time_bucket(ts: Optional[datetime] = None) -> str:
+def encode_time_bucket(ts: datetime | None = None) -> str:
     """Encode a datetime into a 2-char base36 time-bucket string."""
     if ts is None:
         ts = datetime.now(timezone.utc)
@@ -148,9 +147,7 @@ def next_sequence(db_path: Path) -> int:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path), isolation_level="EXCLUSIVE")
     try:
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS _seq (val INTEGER NOT NULL DEFAULT 0)"
-        )
+        conn.execute("CREATE TABLE IF NOT EXISTS _seq (val INTEGER NOT NULL DEFAULT 0)")
         row = conn.execute("SELECT val FROM _seq").fetchone()
         if row is None:
             conn.execute("INSERT INTO _seq VALUES (0)")
@@ -174,9 +171,9 @@ def generate_id(
     entry_type: EntryType,
     truth_gate: TruthGate,
     *,
-    time_bucket: Optional[str] = None,
-    sequence: Optional[int] = None,
-    db_path: Optional[Path] = None,
+    time_bucket: str | None = None,
+    sequence: int | None = None,
+    db_path: Path | None = None,
 ) -> str:
     """
     Generate a valid 16-char ContextOS ID.
@@ -193,6 +190,8 @@ def generate_id(
         sequence = next_sequence(db_path)
 
     seq_str = encode_b36(sequence % _MOD, 2)
-    prefix = f"{kind.value}{actor.value}{cluster.value}{entry_type.value}{truth_gate.value}{tb}{seq_str}"
+    prefix = (
+        f"{kind.value}{actor.value}{cluster.value}{entry_type.value}{truth_gate.value}{tb}{seq_str}"
+    )
     assert len(prefix) == 14, f"BUG: prefix len={len(prefix)}"
     return prefix + compute_checksum(prefix)

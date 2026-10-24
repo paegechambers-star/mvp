@@ -1,0 +1,30 @@
+id: kinderroman
+name: "Kinderroman (8–12 Jahre)"
+fiction: true
+audience: "Selbstleser 8–12 Jahre"
+target_words: {min: 20000, max: 45000}
+chapters: {default: 18, words_min: 1000, words_max: 2500}
+pov_default: "1. oder 3. Person, Hauptfigur im Alter der Zielgruppe (oder 1–2 Jahre älter)"
+structure:
+  - {beat: "Normale Welt", share: 0.1, purpose: "Stimme, Alltag, Mangel der Hauptfigur"}
+  - {beat: "Auslöser", share: 0.05, purpose: "Ereignis, das alles verändert"}
+  - {beat: "Aufbruch & neue Regeln", share: 0.2, purpose: "Freunde, Gegner, Welt-Regeln"}
+  - {beat: "Mittelpunkt", share: 0.15, purpose: "Enthüllung / Perspektivwechsel"}
+  - {beat: "Zuspitzung", share: 0.25, purpose: "Fehler der Figur kosten etwas"}
+  - {beat: "Tiefpunkt", share: 0.1, purpose: "Alles scheint verloren"}
+  - {beat: "Finale", share: 0.1, purpose: "Figur handelt aus eigener Kraft, inneres Wachstum sichtbar"}
+  - {beat: "Neue Normalität", share: 0.05, purpose: "Kurzer Ausklang"}
+style_rules:
+  - "Starke, humorvolle Erzählstimme; Kinderlogik ernst nehmen"
+  - "Szenen statt Zusammenfassungen; Dialog trägt Charakter"
+  - "Erwachsene treten zurück, Kinder treffen die Entscheidungen"
+  - "Kapitelenden mit Haken"
+avoid:
+  - "Belehrender Ton"
+  - "Deus ex machina durch Erwachsene"
+  - "Veraltete Slang-Imitation"
+qa_checklist:
+  - "Trifft die Hauptfigur die entscheidenden Entscheidungen selbst?"
+  - "Ist die Erzählstimme konsistent und altersgerecht?"
+  - "Hat jedes Kapitel einen Szenenkonflikt?"
+  - "Ist das innere Wachstum am Ende sichtbar, ohne ausgesprochen zu werden?"

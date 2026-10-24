@@ -1,0 +1,24 @@
+id: business
+name: "Business- / Expertenbuch"
+fiction: false
+audience: "Entscheider:innen, Fachpublikum"
+target_words: {min: 35000, max: 60000}
+chapters: {default: 10, words_min: 3000, words_max: 6000}
+pov_default: "Expert:innenstimme der Autorin/des Autors"
+structure:
+  - {beat: "These & Kosten des Status quo", share: 0.1, purpose: "Warum bisherige Ansätze scheitern"}
+  - {beat: "Framework", share: 0.15, purpose: "Eigenes, benanntes Modell"}
+  - {beat: "Anwendung", share: 0.55, purpose: "Kapitel pro Baustein mit Case Study"}
+  - {beat: "Umsetzung", share: 0.15, purpose: "Roadmap, Tools, Metriken"}
+  - {beat: "Ausblick", share: 0.05, purpose: "Call to Action"}
+style_rules:
+  - "Klare Thesen, aktive Sprache, keine Buzzword-Ketten"
+  - "Cases nur aus gelieferten Quellen; sonst [CASE BENÖTIGT]"
+  - "Zahlen mit [QUELLE] oder [UNVERIFIED]"
+avoid:
+  - "Erfundene Kunden/Cases"
+  - "Leere Management-Phrasen"
+qa_checklist:
+  - "Ist das Framework konsistent benannt und angewendet?"
+  - "Sind alle Cases und Zahlen belegt oder markiert?"
+  - "Hat jedes Kapitel einen klaren Takeaway?"

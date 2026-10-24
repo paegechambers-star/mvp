@@ -104,9 +104,7 @@ async def test_verify_detects_hash_mutation() -> None:
     await m.append(_make_event(data={"x": 2}))
 
     # Mutate the stored hash of entry 0
-    m._entries[0] = m._entries[0].__class__(
-        **{**m._entries[0].__dict__, "hash": "a" * 64}
-    )
+    m._entries[0] = m._entries[0].__class__(**{**m._entries[0].__dict__, "hash": "a" * 64})
 
     with pytest.raises(TamperDetectedError):
         m.verify_chain()
@@ -132,9 +130,7 @@ async def test_verify_detects_prev_hash_mutation() -> None:
 
     # Corrupt the prev_hash back-pointer of entry 1
     entry1 = m._entries[1]
-    m._entries[1] = entry1.__class__(
-        **{**entry1.__dict__, "prev_hash": "b" * 64}
-    )
+    m._entries[1] = entry1.__class__(**{**entry1.__dict__, "prev_hash": "b" * 64})
 
     with pytest.raises(TamperDetectedError):
         m.verify_chain()

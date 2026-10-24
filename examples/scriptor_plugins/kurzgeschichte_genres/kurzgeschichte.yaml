@@ -1,0 +1,23 @@
+id: kurzgeschichte
+name: "Kurzgeschichte"
+fiction: true
+audience: "Erwachsene, Anthologien/Wettbewerbe"
+target_words: {min: 2000, max: 8000}
+chapters: {default: 4, words_min: 500, words_max: 2500}
+unit_label: "Szene"
+pov_default: "Eine Perspektive, eng"
+structure:
+  - {beat: "Einstieg in medias res", share: 0.2, purpose: "Figur unter Druck, sofort"}
+  - {beat: "Zuspitzung", share: 0.4, purpose: "Ein zentraler Konflikt, keine Nebenstränge"}
+  - {beat: "Wendepunkt", share: 0.25, purpose: "Erkenntnis oder Entscheidung"}
+  - {beat: "Nachhall", share: 0.15, purpose: "Offenes, aber stimmiges Ende"}
+style_rules:
+  - "Jedes Wort muss arbeiten; keine Exposition"
+  - "Ein starkes Bild als Leitmotiv"
+avoid:
+  - "Mehrere Handlungsstränge"
+  - "Erklärendes Ende"
+qa_checklist:
+  - "Beginnt die Geschichte mitten im Konflikt?"
+  - "Gibt es genau einen zentralen Konflikt?"
+  - "Trägt das Ende ohne Erklärung?"

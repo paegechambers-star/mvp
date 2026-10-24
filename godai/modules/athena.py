@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 from godai.models.audit import AuditEvent
 from godai.models.request import InternalRequest
@@ -30,7 +30,7 @@ _logger = logging.getLogger("godai.athena")
 DEFAULT_CONFIDENCE_THRESHOLD: float = 0.7
 
 # Model pairs: generator → validator (must never be the same)
-_DEFAULT_VALIDATOR_MAP: Dict[str, str] = {
+_DEFAULT_VALIDATOR_MAP: dict[str, str] = {
     "claude-sonnet-4-6": "claude-haiku-4-5-20251001",
     "claude-haiku-4-5-20251001": "claude-sonnet-4-6",
     "claude-opus-4-6": "claude-sonnet-4-6",
@@ -58,7 +58,7 @@ class LLMProvider(Protocol):
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """
         Generate a completion for the given prompt using ``model_id``.
@@ -97,7 +97,7 @@ async def _consistency_check(
     validator_model: str,
     generator_output: str,
     request: InternalRequest,
-) -> tuple[bool, float, List[str]]:
+) -> tuple[bool, float, list[str]]:
     """
     Re-prompt the validator with the same query and compare outputs.
 
@@ -109,8 +109,8 @@ async def _consistency_check(
         f"Original query: {request.query}\n\n"
         f"Proposed answer: {generator_output}\n\n"
         f"Is this answer accurate, relevant, and safe? "
-        f"Reply with JSON: {{\"verdict\": \"pass\" or \"fail\", "
-        f"\"confidence\": 0.0-1.0, \"issues\": [list of issues if any]}}"
+        f'Reply with JSON: {{"verdict": "pass" or "fail", '
+        f'"confidence": 0.0-1.0, "issues": [list of issues if any]}}'
     )
     try:
         response = await provider.generate(
@@ -130,15 +130,15 @@ async def _fact_verification(
     validator_model: str,
     generator_output: str,
     request: InternalRequest,
-) -> tuple[bool, float, List[str]]:
+) -> tuple[bool, float, list[str]]:
     """Ask the validator to fact-check all factual claims in the output."""
     prompt = (
         f"You are a fact-checking validator.\n"
         f"Original query: {request.query}\n\n"
         f"Output to verify: {generator_output}\n\n"
         f"Identify any factual inaccuracies. "
-        f"Reply with JSON: {{\"verdict\": \"pass\" or \"fail\", "
-        f"\"confidence\": 0.0-1.0, \"issues\": [list of inaccuracies]}}"
+        f'Reply with JSON: {{"verdict": "pass" or "fail", '
+        f'"confidence": 0.0-1.0, "issues": [list of inaccuracies]}}'
     )
     try:
         response = await provider.generate(
@@ -157,7 +157,7 @@ async def _policy_compliance(
     validator_model: str,
     generator_output: str,
     request: InternalRequest,
-) -> tuple[bool, float, List[str]]:
+) -> tuple[bool, float, list[str]]:
     """Ask the validator to audit the output for policy compliance."""
     prompt = (
         f"You are a policy-compliance auditor.\n"
@@ -165,8 +165,8 @@ async def _policy_compliance(
         f"Trust level: {request.trust_level.name}\n"
         f"Output to audit: {generator_output}\n\n"
         f"Does this output comply with data-handling policies? "
-        f"Reply with JSON: {{\"verdict\": \"pass\" or \"fail\", "
-        f"\"confidence\": 0.0-1.0, \"issues\": [list of violations]}}"
+        f'Reply with JSON: {{"verdict": "pass" or "fail", '
+        f'"confidence": 0.0-1.0, "issues": [list of violations]}}'
     )
     try:
         response = await provider.generate(
@@ -180,7 +180,7 @@ async def _policy_compliance(
     return _parse_validator_response(response)
 
 
-def _parse_validator_response(response: str) -> tuple[bool, float, List[str]]:
+def _parse_validator_response(response: str) -> tuple[bool, float, list[str]]:
     """
     Parse a structured JSON verdict from a validator LLM response.
 
@@ -194,7 +194,7 @@ def _parse_validator_response(response: str) -> tuple[bool, float, List[str]]:
         data = json.loads(response)
         verdict = data.get("verdict", "pass")
         confidence = float(data.get("confidence", 0.8))
-        issues: List[str] = data.get("issues", [])
+        issues: list[str] = data.get("issues", [])
         passed = verdict.lower() == "pass"
         return passed, confidence, issues
     except (json.JSONDecodeError, ValueError, TypeError):
@@ -233,7 +233,7 @@ class Athena:
         llm_provider: LLMProvider,
         strategy: str = "consistency_check",
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
-        validator_model_map: Optional[Dict[str, str]] = None,
+        validator_model_map: dict[str, str] | None = None,
         default_validator: str = _DEFAULT_FALLBACK_VALIDATOR,
     ) -> None:
         """
@@ -255,14 +255,13 @@ class Athena:
         """
         if strategy not in _STRATEGY_DISPATCH:
             raise ValidationStrategyError(
-                f"Unknown strategy {strategy!r}. "
-                f"Valid options: {list(_STRATEGY_DISPATCH)}"
+                f"Unknown strategy {strategy!r}. " f"Valid options: {list(_STRATEGY_DISPATCH)}"
             )
         self._mnemosyne = mnemosyne
         self._provider = llm_provider
         self._strategy = strategy
         self._confidence_threshold = confidence_threshold
-        self._validator_map: Dict[str, str] = (
+        self._validator_map: dict[str, str] = (
             validator_model_map if validator_model_map is not None else dict(_DEFAULT_VALIDATOR_MAP)
         )
         self._default_validator = default_validator
@@ -329,21 +328,23 @@ class Athena:
             timestamp=datetime.now(timezone.utc),
         )
 
-        await self._mnemosyne.append(AuditEvent(
-            event_type="validation",
-            event_data={
-                "request_id": str(request.request_id),
-                "user_id": request.user_id,
-                "passed": passed,
-                "confidence": confidence,
-                "strategy": self._strategy,
-                "generator_model": generator_model,
-                "validator_model": validator_model,
-                "issues": issues,
-            },
-            source_module="ATHENA",
-            timestamp=result.timestamp,
-        ))
+        await self._mnemosyne.append(
+            AuditEvent(
+                event_type="validation",
+                event_data={
+                    "request_id": str(request.request_id),
+                    "user_id": request.user_id,
+                    "passed": passed,
+                    "confidence": confidence,
+                    "strategy": self._strategy,
+                    "generator_model": generator_model,
+                    "validator_model": validator_model,
+                    "issues": issues,
+                },
+                source_module="ATHENA",
+                timestamp=result.timestamp,
+            )
+        )
 
         _logger.info(
             "ATHENA %s request %s (confidence=%.2f, strategy=%s, validator=%s)",

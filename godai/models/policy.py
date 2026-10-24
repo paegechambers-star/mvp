@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List
 
 
 @dataclass
@@ -16,10 +15,10 @@ class PolicyRule:
     """
 
     id: str
-    condition: str      # Expression: when this rule applies (e.g. "data_class == SENSITIVE")
-    requirement: str    # Expression: what must be true to allow (e.g. "trust_level >= L2")
-    action: str         # "deny" | "allow"
-    message: str        # Human-readable explanation logged on match
+    condition: str  # Expression: when this rule applies (e.g. "data_class == SENSITIVE")
+    requirement: str  # Expression: what must be true to allow (e.g. "trust_level >= L2")
+    action: str  # "deny" | "allow"
+    message: str  # Human-readable explanation logged on match
 
 
 @dataclass
@@ -34,5 +33,5 @@ class PolicyDecision:
     allowed: bool
     reason: str
     policy_version: str
-    rules_evaluated: List[str]
+    rules_evaluated: list[str]
     timestamp: datetime

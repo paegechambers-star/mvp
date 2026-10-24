@@ -1,0 +1,30 @@
+id: thriller_krimi
+name: "Thriller / Krimi"
+fiction: true
+audience: "Erwachsene Spannungsleser:innen"
+target_words: {min: 70000, max: 100000}
+chapters: {default: 45, words_min: 1200, words_max: 2500}
+pov_default: "Ermittler-POV, optional Täter-Einschübe"
+structure:
+  - {beat: "Hook / Tat", share: 0.03, purpose: "Leiche oder Bedrohung auf den ersten Seiten"}
+  - {beat: "Ermittlung startet", share: 0.12, purpose: "Ermittler + persönliche Last"}
+  - {beat: "Falsche Fährten", share: 0.25, purpose: "Fair-Play-Hinweise zwischen Red Herrings"}
+  - {beat: "Mittelwendung", share: 0.1, purpose: "Zweite Tat oder Theorie bricht"}
+  - {beat: "Persönliche Bedrohung", share: 0.2, purpose: "Fall wird persönlich, Uhr tickt"}
+  - {beat: "Enthüllung", share: 0.15, purpose: "Täter, überraschend aber fair"}
+  - {beat: "Konfrontation", share: 0.1, purpose: "Showdown"}
+  - {beat: "Nachspiel", share: 0.05, purpose: "Kosten, offene persönliche Fäden"}
+style_rules:
+  - "Kurze Kapitel, harte Schnitte, Cliffhanger"
+  - "Jeder Hinweis wird im Text fair platziert (Clue-Register führen)"
+  - "Procedural-Details plausibel, aber nicht dozierend"
+  - "Tempo über Satzlänge steuern"
+avoid:
+  - "Täter, der erst am Ende eingeführt wird"
+  - "Zufall löst den Fall"
+  - "Ermittler-Klischee ohne Twist"
+qa_checklist:
+  - "Ist der Täter vor der Enthüllung fair eingeführt?"
+  - "Sind alle Hinweise im Clue-Register und im Text?"
+  - "Endet jedes Kapitel mit Spannung?"
+  - "Ist die Zeitleiste widerspruchsfrei?"

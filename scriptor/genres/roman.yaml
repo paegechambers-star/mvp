@@ -1,0 +1,29 @@
+id: roman
+name: "Roman / Belletristik"
+fiction: true
+audience: "Erwachsene Leser:innen"
+target_words: {min: 70000, max: 110000}
+chapters: {default: 28, words_min: 2000, words_max: 5000}
+pov_default: "Nach Bible; Konsistenz pro Kapitel"
+structure:
+  - {beat: "Exposition", share: 0.1, purpose: "Figur in ihrer Welt, zentrale Frage"}
+  - {beat: "Erster Wendepunkt", share: 0.15, purpose: "Kein Zurück"}
+  - {beat: "Steigende Handlung", share: 0.25, purpose: "Komplikationen, Nebenfiguren mit eigenem Willen"}
+  - {beat: "Mittelpunkt", share: 0.1, purpose: "Spiegelmoment, Verschiebung der Frage"}
+  - {beat: "Krise", share: 0.2, purpose: "Konsequenzen, innere Zerreißprobe"}
+  - {beat: "Höhepunkt", share: 0.15, purpose: "Entscheidung, die Charakter offenbart"}
+  - {beat: "Auflösung", share: 0.05, purpose: "Nachhall, Thema ohne Erklärung"}
+style_rules:
+  - "Subtext vor Text; Figuren sagen selten genau, was sie meinen"
+  - "Präzise sinnliche Details statt Adjektivketten"
+  - "Rhythmus variieren: Satzlängen bewusst mischen"
+  - "Show, don't tell – außer bewusst gesetzte Raffung"
+avoid:
+  - "Klischee-Metaphern"
+  - "Figuren, die nur Funktion haben"
+  - "Erklärende Dialoge (As-you-know-Bob)"
+qa_checklist:
+  - "Hat jede Szene einen dramatischen Zweck?"
+  - "Haben Nebenfiguren eigene Ziele?"
+  - "Ist die Prosa frei von Klischees und Füllwörtern?"
+  - "Wird das Thema gezeigt statt erklärt?"

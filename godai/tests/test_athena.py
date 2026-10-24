@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -12,11 +12,10 @@ from godai.models.request import DataClass, InternalRequest, TrustLevel
 from godai.modules.athena import (
     Athena,
     LLMProvider,
-    ValidatorModelError,
     ValidationStrategyError,
+    ValidatorModelError,
 )
 from godai.modules.mnemosyne import Mnemosyne
-
 
 # ---------------------------------------------------------------------------
 # Test LLM provider implementations
@@ -26,35 +25,35 @@ from godai.modules.mnemosyne import Mnemosyne
 class PassingProvider:
     """Mock provider: always returns a valid passing verdict."""
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         return '{"verdict": "pass", "confidence": 0.95, "issues": []}'
 
 
 class FailingProvider:
     """Mock provider: always returns a failing verdict."""
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         return '{"verdict": "fail", "confidence": 0.90, "issues": ["Factual error found"]}'
 
 
 class LowConfidenceProvider:
     """Mock provider: passes verdict but low confidence (below default threshold)."""
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         return '{"verdict": "pass", "confidence": 0.4, "issues": []}'
 
 
 class ErrorProvider:
     """Mock provider: raises an exception on generate."""
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         raise RuntimeError("LLM backend unreachable")
 
 
 class FreeTextProvider:
     """Mock provider: returns free-form text instead of JSON."""
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         return "This answer looks correct to me."
 
 
@@ -77,7 +76,9 @@ def _make_request() -> InternalRequest:
     )
 
 
-def _athena(provider: LLMProvider, strategy: str = "consistency_check", threshold: float = 0.7) -> Athena:
+def _athena(
+    provider: LLMProvider, strategy: str = "consistency_check", threshold: float = 0.7
+) -> Athena:
     return Athena(
         mnemosyne=Mnemosyne(),
         llm_provider=provider,

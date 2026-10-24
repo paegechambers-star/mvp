@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FraPP</title>
+<style>
+:root{
+  --bg:#f6f5f2;--panel:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;
+  --accent:#3b5bdb;--accent-ink:#fff;--ok:#2b8a3e;--warn:#c77d00;--bad:#c92a2a;--soft:#eef1fb;
+  --hard:#c92a2a;--softc:#3b5bdb;--float:#868e96;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141416;--panel:#1d1d21;--ink:#ececf0;--muted:#9a9aa3;--line:#2e2e35;
+  --accent:#7b93ff;--accent-ink:#0b0b10;--ok:#69db7c;--warn:#ffc078;--bad:#ff8787;--soft:#23263a;
+  --hard:#ff8787;--softc:#7b93ff;--float:#adb5bd;
+}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+header{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;letter-spacing:.12em;margin:0 12px 0 0}
+nav button{background:none;border:0;color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;font:inherit}
+nav button.active{color:var(--ink);background:var(--soft)}
+.spacer{flex:1}
+.badge{white-space:nowrap;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.badge.ok{color:var(--ok)}.badge.bad{color:var(--bad)}.badge.warn{color:var(--warn)}
+main{flex:1;padding:18px;max-width:1500px;width:100%;margin:0 auto}
+main.full{max-width:none;padding:0;display:flex}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.card h3{font-size:12px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.grid2{display:grid;grid-template-columns:1fr 360px;gap:14px}
+.grid2>*{min-width:0}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.row>*{flex:1;min-width:110px}.row>.fit{flex:0 0 auto;min-width:0}
+button.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.small{padding:2px 8px;font-size:12px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;white-space:nowrap}
+.muted{color:var(--muted)}
+.c-HARD{color:var(--hard);font-weight:600}.c-SOFT{color:var(--softc);font-weight:600}.c-FLOAT{color:var(--float);font-weight:600}
+.s-VERIFIED{color:var(--ok);font-weight:600}.s-UNVERIFIED{color:var(--warn);font-weight:600}
+.s-EMPTY-BUT-VERIFIED{color:var(--ok)}.s-ASSUMPTION{color:var(--warn)}
+.stamp{font:13px var(--mono)}
+.day{margin-bottom:10px}
+.day h4{margin:8px 0 4px;font-size:13px}
+.ev{display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px dashed var(--line)}
+.ev .t{font:12px var(--mono);color:var(--muted);min-width:96px}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto}
+.msg{padding:9px 12px;border-radius:10px;white-space:pre-wrap;max-width:85%}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+.msg.bot{background:var(--soft)}
+.msg.err{background:none;color:var(--bad);font-size:13px}
+iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
+.hidden{display:none !important}
+.err{color:var(--bad)}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}main{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>FraPP</h1>
+  <nav id="nav">
+    <button data-view="plan" class="active">Tagesplan</button>
+    <button data-view="cal">Kalender</button>
+    <button data-view="scriptor">Scriptor</button>
+    <button data-view="godai">G.O.D.A.I.</button>
+    <button data-view="ctx">ContextOS</button>
+  </nav>
+  <div class="spacer"></div>
+  <span id="clock" class="badge stamp"></span>
+  <span id="health" class="badge"></span>
+</header>
+
+<!-- TAGESPLAN -->
+<main id="view-plan">
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="row">
+          <div><label>Tag</label><input type="date" id="p-day"></div>
+          <div><label>Von</label><input type="time" id="p-start" value="07:00"></div>
+          <div><label>Bis</label><input type="time" id="p-end" value="22:00"></div>
+          <button class="btn primary fit" id="p-go">Planen</button>
+        </div>
+        <h3>Zeitstempel</h3>
+        <div id="p-stamp" class="stamp"></div>
+        <h3>Truth-Gate</h3>
+        <div class="tablewrap"><table id="p-gate"></table></div>
+      </div>
+      <div class="card">
+        <h2>Plan — 4D-Matrix <span class="muted" id="p-free"></span></h2>
+        <div class="tablewrap"><table id="p-rows"></table></div>
+        <div id="p-extra"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Aufgabe hinzufügen</h2>
+        <label>Titel</label><input id="t-title" placeholder="z. B. Kapitel 3 überarbeiten">
+        <div class="row">
+          <div><label>Dauer (min)</label><input id="t-dur" type="number" min="5" max="720" value="60"></div>
+          <div><label>Constraint</label><select id="t-con"><option>SOFT</option><option>HARD</option><option>FLOAT</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Domain</label><input id="t-dom" value="Allgemein" list="domains"></div>
+          <div><label>Priorität</label><select id="t-prio"><option value="1">1 hoch</option><option value="2" selected>2 normal</option><option value="3">3 niedrig</option></select></div>
+        </div>
+        <datalist id="domains"><option>Scriptor</option><option>FraPP</option><option>Gesundheit</option><option>Privat</option><option>Admin</option></datalist>
+        <div class="row" id="t-fixed-row">
+          <div><label>Feste Uhrzeit (Pflicht bei HARD)</label><input id="t-fixed" type="time"></div>
+        </div>
+        <div class="row">
+          <div><label>Quelle</label><input id="t-src" value="Nutzereingabe"></div>
+          <div><label>Certainty</label><select id="t-cert"><option>VERIFIED</option><option>UNVERIFIED</option><option>ASSUMPTION</option></select></div>
+        </div>
+        <div style="margin-top:10px"><button class="btn primary" id="t-add">Hinzufügen</button></div>
+      </div>
+      <div class="card">
+        <h2>Offene Aufgaben dieses Tages</h2>
+        <div id="t-list"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- KALENDER -->
+<main id="view-cal" class="hidden">
+  <div class="grid2">
+    <div class="card">
+      <div class="row">
+        <button class="btn fit" id="c-prev">‹ Woche</button>
+        <div><strong id="c-range"></strong></div>
+        <button class="btn fit" id="c-today">Heute</button>
+        <button class="btn fit" id="c-next">Woche ›</button>
+      </div>
+      <div id="c-week" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2 id="c-form-title">Termin anlegen</h2>
+      <input type="hidden" id="c-id">
+      <label>Titel</label><input id="c-title">
+      <div class="row">
+        <div><label>Datum</label><input type="date" id="c-date"></div>
+        <div class="fit"><label>Ganztägig</label><input type="checkbox" id="c-allday" style="width:auto"></div>
+      </div>
+      <div class="row">
+        <div><label>Beginn</label><input type="time" id="c-start" value="09:00"></div>
+        <div><label>Ende</label><input type="time" id="c-end" value="10:00"></div>
+      </div>
+      <label>Ort</label><input id="c-loc">
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary fit" id="c-save">Speichern</button>
+        <button class="btn fit hidden" id="c-del">Löschen</button>
+        <button class="btn fit hidden" id="c-new">Neu</button>
+      </div>
+      <p class="muted">Zeiten gelten in Europe/Berlin (MEZ/MESZ). Termine sind im Tagesplan HARD und VERIFIED.</p>
+    </div>
+  </div>
+</main>
+
+<!-- SCRIPTOR -->
+<main id="view-scriptor" class="hidden full">
+  <iframe id="scriptor-frame" title="Scriptor"></iframe>
+</main>
+
+<!-- G.O.D.A.I. -->
+<main id="view-godai" class="hidden">
+  <div class="grid2">
+    <div class="card">
+      <h2>G.O.D.A.I. – Anfrage</h2>
+      <p class="muted">HERMES (Token, Trust) → THEMIS (Policy, bindend) → APOLLON (Modellwahl) → Modell → ATHENA (Gegenprüfung) → MNEMOSYNE (Audit).</p>
+      <div id="g-chat" class="chat"></div>
+      <label>Datenklasse</label>
+      <select id="g-class"><option>PUBLIC</option><option selected>INTERNAL</option><option>SENSITIVE</option><option>RESTRICTED</option></select>
+      <label>Anfrage</label><textarea id="g-q"></textarea>
+      <div style="margin-top:8px"><button class="btn primary" id="g-send">Senden</button></div>
+    </div>
+    <div class="card">
+      <h2>Status</h2>
+      <div id="g-status"></div>
+      <h3>MNEMOSYNE – letzte Einträge</h3>
+      <div class="tablewrap"><table id="g-audit"></table></div>
+    </div>
+  </div>
+</main>
+
+<!-- CONTEXTOS -->
+<main id="view-ctx" class="hidden">
+  <div class="grid2">
+    <div class="card">
+      <h2>ContextOS-Register</h2>
+      <div class="row">
+        <div><select id="x-part"><option value="ssot">SSOT (Wahrheit)</option><option value="work">WORK (Entwürfe)</option></select></div>
+        <button class="btn fit" id="x-load">Laden</button>
+      </div>
+      <div class="tablewrap" style="margin-top:10px"><table id="x-entries"></table></div>
+    </div>
+    <div class="card">
+      <h2>Status</h2>
+      <div id="x-status"></div>
+      <h3>NKID / MKID prüfen</h3>
+      <div class="row"><div><input id="x-id" placeholder="16-stellige ID"></div><button class="btn fit" id="x-check">Prüfen</button></div>
+      <pre id="x-result" class="stamp" style="white-space:pre-wrap"></pre>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const TOKEN = (() => {
+  const m = location.hash.match(/token=([^&]+)/);
+  if (m) { try { sessionStorage.setItem("frapp-token", m[1]); } catch (e) {} history.replaceState(null, "", location.pathname); return m[1]; }
+  try { return sessionStorage.getItem("frapp-token") || ""; } catch (e) { return ""; }
+})();
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TZ = "Europe/Berlin";
+const fmtTime = (iso) => iso ? new Intl.DateTimeFormat("de-DE", {timeZone: TZ, hour: "2-digit", minute: "2-digit"}).format(new Date(iso)) : "";
+const fmtDay = (d) => new Intl.DateTimeFormat("de-DE", {timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit"}).format(d);
+const berlinDate = (d) => new Intl.DateTimeFormat("sv-SE", {timeZone: TZ}).format(d);  // YYYY-MM-DD
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    method: opts.method || "GET",
+    headers: {"Content-Type": "application/json", "X-API-Key": TOKEN},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    let msg = typeof data.detail === "string" ? data.detail : (data.title || "Fehler");
+    if (Array.isArray(data.detail)) msg += ": " + data.detail.map(d => `${(d.loc || []).slice(-1)[0]} – ${d.msg}`).join("; ");
+    throw new Error(msg);
+  }
+  return data;
+}
+const fail = (e) => alert("Fehler: " + e.message);
+
+// ------------------------------------------------ Navigation
+let scriptorLoaded = false;
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  ["plan", "cal", "scriptor", "godai", "ctx"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
+  if (b.dataset.view === "scriptor" && !scriptorLoaded) { $("#scriptor-frame").src = "/scriptor/#token=" + encodeURIComponent(TOKEN); scriptorLoaded = true; }
+  if (b.dataset.view === "cal") loadWeek();
+  if (b.dataset.view === "godai") loadGodai();
+  if (b.dataset.view === "ctx") loadCtx();
+});
+
+// ------------------------------------------------ Kopf: Uhr + Health
+setInterval(() => { $("#clock").textContent = new Intl.DateTimeFormat("de-DE", {timeZone: TZ, dateStyle: "medium", timeStyle: "medium"}).format(new Date()) + " Berlin"; }, 1000);
+async function health() {
+  try { const h = await (await fetch("/healthz")).json(); $("#health").textContent = `${h.app} ${h.version} · DB ${h.db || "?"}`; $("#health").className = "badge ok"; }
+  catch (e) { $("#health").textContent = "Server nicht erreichbar"; $("#health").className = "badge bad"; }
+}
+
+// ------------------------------------------------ Tagesplan
+$("#p-day").value = berlinDate(new Date());
+async function loadPlan() {
+  try {
+    const day = $("#p-day").value;
+    const p = await api(`/v1/planner/day?day=${day}&start=${$("#p-start").value}&end=${$("#p-end").value}`);
+    const t = p.timestamp;
+    $("#p-stamp").innerHTML = `${esc(t.berlin.replace("T", " "))} ${esc(t.zone)} · <span class="${t.verified ? "s-VERIFIED" : "s-UNVERIFIED"}">${t.verified ? "VERIFIED" : "UNVERIFIED"}</span><br><span class="muted">${esc(t.method)}</span>`;
+    $("#p-gate").innerHTML = `<tr><th>Quelle</th><th>Status</th><th>Detail</th></tr>` +
+      p.truth_gate.map(g => `<tr><td>${esc(g.source)}</td><td class="s-${esc(g.status)}">${esc(g.status)}</td><td class="muted">${esc(g.detail)}</td></tr>`).join("");
+    $("#p-free").textContent = `· ${p.free_minutes} min frei`;
+    $("#p-rows").innerHTML = `<tr><th>Time</th><th>Constraint</th><th>Domain</th><th>Inhalt</th><th>Source</th><th>Certainty</th></tr>` +
+      (p.rows.map(r => `<tr><td class="stamp">${r.start ? fmtTime(r.start) + "–" + fmtTime(r.end) : "ganztägig"}<br><span class="muted">${esc(r.time_basis)}</span></td>
+        <td class="c-${esc(r.constraint)}">${esc(r.constraint)}</td><td>${esc(r.domain)}</td><td>${esc(r.title)}</td>
+        <td class="muted">${esc(r.source)}</td><td class="s-${esc(r.certainty)}">${esc(r.certainty)}</td></tr>`).join("")
+       || `<tr><td colspan="6" class="muted">Keine Einträge — siehe Truth-Gate (leer heißt geprüft leer, nicht unbekannt).</td></tr>`);
+    let extra = "";
+    if (p.conflicts.length) extra += `<h3>Konflikte</h3>` + p.conflicts.map(c => `<div class="err">${esc(c.a)} ↔ ${esc(c.b)}: ${c.overlap_min} min Überschneidung</div>`).join("");
+    if (p.unplaced.length) extra += `<h3>Nicht eingeplant</h3>` + p.unplaced.map(u => `<div>${esc(u.title)} (${u.duration_min} min, ${esc(u.constraint)}) — <span class="muted">${esc(u.reason)}</span></div>`).join("");
+    $("#p-extra").innerHTML = extra;
+    loadTasks();
+  } catch (e) { fail(e); }
+}
+async function loadTasks() {
+  const day = $("#p-day").value;
+  const tasks = await api(`/v1/tasks?day=${day}`);
+  const undated = day === berlinDate(new Date()) ? (await api(`/v1/tasks`)).filter(t => !t.day) : [];
+  const all = tasks.concat(undated);
+  $("#t-list").innerHTML = all.map(t => `<div class="ev"><span class="c-${esc(t.constraint)}">${esc(t.constraint)}</span>
+      <span style="flex:1">${esc(t.title)} <span class="muted">· ${t.duration_min} min · ${esc(t.domain)} · P${t.priority}</span></span>
+      <button class="btn small" data-done="${t.id}">erledigt</button><button class="btn small" data-del="${t.id}">✕</button></div>`).join("")
+    || `<p class="muted">Keine offenen Aufgaben.</p>`;
+  document.querySelectorAll("[data-done]").forEach(b => b.onclick = () => api(`/v1/tasks/${b.dataset.done}`, {method: "PATCH", body: {done: true}}).then(loadPlan).catch(fail));
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => confirm("Aufgabe löschen?") && api(`/v1/tasks/${b.dataset.del}`, {method: "DELETE"}).then(loadPlan).catch(fail));
+}
+$("#p-go").onclick = loadPlan;
+$("#p-day").onchange = loadPlan;
+$("#t-add").onclick = async () => {
+  const day = $("#p-day").value;
+  const body = {title: $("#t-title").value, duration_min: +$("#t-dur").value, constraint: $("#t-con").value,
+    domain: $("#t-dom").value || "Allgemein", priority: +$("#t-prio").value, source: $("#t-src").value || "Nutzereingabe",
+    certainty: $("#t-cert").value, day};
+  if (!body.title.trim()) return alert("Bitte einen Titel eingeben.");
+  if (body.constraint === "HARD" && !$("#t-fixed").value) return alert("HARD braucht eine feste Uhrzeit.");
+  if ($("#t-fixed").value) body.fixed_start = `${day}T${$("#t-fixed").value}:00`;
+  try { await api("/v1/tasks", {method: "POST", body}); $("#t-title").value = ""; $("#t-fixed").value = ""; loadPlan(); }
+  catch (e) { fail(e); }
+};
+
+// ------------------------------------------------ Kalender
+let weekStart = (() => { const d = new Date(); const wd = (d.getDay() + 6) % 7; d.setDate(d.getDate() - wd); d.setHours(0, 0, 0, 0); return d; })();
+let EVENTS = [];
+async function loadWeek() {
+  try {
+    EVENTS = (await api("/v1/events?limit=1000")).data;
+    const days = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
+    $("#c-range").textContent = `${fmtDay(days[0])} – ${fmtDay(days[6])}`;
+    $("#c-week").innerHTML = days.map(d => {
+      const key = berlinDate(d);
+      const evs = EVENTS.filter(e => berlinDate(new Date(e.starts_at)) === key).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+      return `<div class="day"><h4>${fmtDay(d)}${key === berlinDate(new Date()) ? " · heute" : ""}</h4>` +
+        (evs.map(e => `<div class="ev"><span class="t">${e.all_day ? "ganztägig" : fmtTime(e.starts_at) + "–" + fmtTime(e.ends_at)}</span>
+          <span style="flex:1">${esc(e.title)}${e.location ? ` <span class="muted">· ${esc(e.location)}</span>` : ""}</span>
+          <button class="btn small" data-edit="${e.id}">Bearbeiten</button></div>`).join("") || `<div class="muted">—</div>`) + `</div>`;
+    }).join("");
+    document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editEvent(+b.dataset.edit));
+  } catch (e) { fail(e); }
+}
+function resetForm() {
+  $("#c-id").value = ""; $("#c-title").value = ""; $("#c-loc").value = ""; $("#c-allday").checked = false;
+  $("#c-date").value = berlinDate(new Date()); $("#c-start").value = "09:00"; $("#c-end").value = "10:00";
+  $("#c-form-title").textContent = "Termin anlegen"; $("#c-del").classList.add("hidden"); $("#c-new").classList.add("hidden");
+}
+function editEvent(id) {
+  const e = EVENTS.find(x => x.id === id); if (!e) return;
+  $("#c-id").value = id; $("#c-title").value = e.title; $("#c-loc").value = e.location || ""; $("#c-allday").checked = e.all_day;
+  $("#c-date").value = berlinDate(new Date(e.starts_at)); $("#c-start").value = fmtTime(e.starts_at); $("#c-end").value = fmtTime(e.ends_at);
+  $("#c-form-title").textContent = `Termin #${id} bearbeiten`; $("#c-del").classList.remove("hidden"); $("#c-new").classList.remove("hidden");
+}
+$("#c-save").onclick = async () => {
+  const d = $("#c-date").value, allday = $("#c-allday").checked;
+  const body = {title: $("#c-title").value, location: $("#c-loc").value || null, all_day: allday,
+    starts_at: `${d}T${allday ? "00:00" : $("#c-start").value}:00`, ends_at: `${d}T${allday ? "23:59" : $("#c-end").value}:00`};
+  if (!body.title) return alert("Titel fehlt");
+  if (!allday && body.ends_at <= body.starts_at) return alert("Ende muss nach Beginn liegen");
+  try {
+    const id = $("#c-id").value;
+    await api(id ? `/v1/events/${id}` : "/v1/events", {method: id ? "PUT" : "POST", body});
+    resetForm(); loadWeek();
+  } catch (e) { fail(e); }
+};
+$("#c-del").onclick = () => confirm("Termin löschen?") && api(`/v1/events/${$("#c-id").value}`, {method: "DELETE"}).then(() => { resetForm(); loadWeek(); }).catch(fail);
+$("#c-new").onclick = resetForm;
+$("#c-prev").onclick = () => { weekStart.setDate(weekStart.getDate() - 7); loadWeek(); };
+$("#c-next").onclick = () => { weekStart.setDate(weekStart.getDate() + 7); loadWeek(); };
+$("#c-today").onclick = () => { weekStart = new Date(); const wd = (weekStart.getDay() + 6) % 7; weekStart.setDate(weekStart.getDate() - wd); loadWeek(); };
+resetForm();
+
+// ------------------------------------------------ G.O.D.A.I.
+let JWT = null;
+async function loadGodai() {
+  try {
+    const s = await api("/v1/godai/status");
+    $("#g-status").innerHTML = `<div>Provider: <strong>${esc(s.provider)}</strong>${s.provider === "EchoProvider" ? ` <span class="s-UNVERIFIED">(kein API-Key – Antworten sind nur ein Echo)</span>` : ""}</div>
+      <div>MNEMOSYNE: ${s.audit_entries} Einträge · Kette <span class="${s.chain_valid ? "s-VERIFIED" : "err"}">${s.chain_valid ? "intakt" : "GEBROCHEN"}</span></div>`;
+    const a = await api("/v1/godai/audit?limit=200");
+    $("#g-audit").innerHTML = `<tr><th>#</th><th>Modul</th><th>Ereignis</th><th>Details</th></tr>` +
+      a.entries.slice(-15).reverse().map(e => `<tr><td>${e.chain_index}</td><td>${esc(e.source_module)}</td><td>${esc(e.event_type)}</td>
+        <td class="muted">${esc(Object.entries(e.event_data).filter(([k]) => ["allowed","reason","model_id","data_class","passed","confidence","trust_level"].includes(k)).map(([k, v]) => k + "=" + v).join(", "))}</td></tr>`).join("");
+  } catch (e) { $("#g-status").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+function chatMsg(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; $("#g-chat").appendChild(d); $("#g-chat").scrollTop = 1e9; }
+$("#g-send").onclick = async () => {
+  const q = $("#g-q").value.trim(); if (!q) return;
+  chatMsg("user", q); $("#g-q").value = "";
+  try {
+    if (!JWT) JWT = (await api("/v1/godai/token", {method: "POST", body: {user_id: "chambi", trust_level: "L2", expires_hours: 12}})).token;
+    const r = await api("/v1/godai/query", {method: "POST", body: {token: JWT, user_id: "chambi", query: q, context: {data_class: $("#g-class").value}}});
+    if (r.success) chatMsg("bot", r.output + (r.model_id ? `\n\n— ${r.model_id}` : ""));
+    else chatMsg("err", "Abgelehnt/Fehler: " + r.error);
+  } catch (e) { chatMsg("err", e.message); }
+  loadGodai();
+};
+
+// ------------------------------------------------ ContextOS
+async function loadCtx() {
+  try {
+    const s = await api("/v1/contextos/status");
+    $("#x-status").innerHTML = `<div>SSOT: ${s.ssot} · WORK: ${s.work} · Log: ${s.log_entries}</div>
+      <div>Log-Kette: <span class="${s.chain_ok ? "s-VERIFIED" : "err"}">${s.chain_ok ? "intakt" : "GEBROCHEN"}</span></div><div class="muted">${esc(s.path)}</div>`;
+    const rows = await api(`/v1/contextos/entries?partition=${$("#x-part").value}`);
+    $("#x-entries").innerHTML = `<tr><th>ID</th><th>Truth-Gate</th><th>Cluster</th><th>Inhalt</th></tr>` +
+      (rows.map(e => `<tr><td class="stamp">${esc(e.nkid || e.mkid)}</td><td>${esc(e.truth_gate)}</td><td>${esc(e.cluster)}</td><td>${esc(String(e.content).slice(0, 160))}</td></tr>`).join("")
+       || `<tr><td colspan="4" class="muted">Register leer.</td></tr>`);
+  } catch (e) { $("#x-status").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+$("#x-load").onclick = loadCtx;
+$("#x-check").onclick = () => api(`/v1/contextos/validate/${encodeURIComponent($("#x-id").value.trim())}`)
+  .then(r => { $("#x-result").textContent = JSON.stringify(r, null, 2); }).catch(fail);
+
+// ------------------------------------------------ Start
+if (!TOKEN) document.body.innerHTML = "<main><div class='card'>Kein Zugriffsschlüssel. Bitte FraPP über die Desktop-Verknüpfung starten.</div></main>";
+else { health(); loadPlan(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+id: memoir
+name: "Autobiografie / Memoir"
+fiction: false
+data_class: SENSITIVE   # echte Personen/Lebensdaten → G.O.D.A.I. verlangt L2+
+audience: "Laut Bible (Familie, breite Öffentlichkeit)"
+target_words: {min: 40000, max: 90000}
+chapters: {default: 20, words_min: 2000, words_max: 4500}
+pov_default: "Ich-Perspektive der Person, deren Leben erzählt wird"
+structure:
+  - {beat: "Schlüsselszene", share: 0.05, purpose: "Einstieg mitten in einem prägenden Moment"}
+  - {beat: "Herkunft", share: 0.15, purpose: "Familie, Ort, Zeit"}
+  - {beat: "Prägungen", share: 0.25, purpose: "Episoden, die den Kern formen"}
+  - {beat: "Bruch / Krise", share: 0.2, purpose: "Wendepunkt des Lebens"}
+  - {beat: "Neuaufbau", share: 0.25, purpose: "Was daraus wurde"}
+  - {beat: "Rückblick", share: 0.1, purpose: "Erkenntnis aus heutiger Sicht"}
+style_rules:
+  - "Nur Fakten aus den Interview-/Quellennotizen verwenden; Lücken als [FRAGE AN AUTOR: ...] markieren"
+  - "Stimme der Person treu bleiben (Voice-Profil), keine Glättung von Eigenheiten"
+  - "Szenisch erzählen, aber keine Ereignisse erfinden"
+  - "Erinnerungsunsicherheit ehrlich benennen"
+avoid:
+  - "Erfundene Ereignisse, Dialoge oder Personen"
+  - "Persönlichkeitsrechte Dritter verletzen (Namen ggf. ändern, markieren)"
+qa_checklist:
+  - "Stammt jedes Ereignis aus den Quellennotizen?"
+  - "Sind offene Fragen als [FRAGE AN AUTOR] markiert?"
+  - "Klingt der Text nach der Person (Voice-Profil)?"
+  - "Sind Dritte rechtlich unbedenklich dargestellt?"

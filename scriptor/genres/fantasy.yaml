@@ -1,0 +1,32 @@
+id: fantasy
+name: "Fantasy / Science-Fiction"
+fiction: true
+audience: "Genre-Leser:innen (YA oder Adult laut Bible)"
+target_words: {min: 80000, max: 130000}
+chapters: {default: 32, words_min: 2500, words_max: 4500}
+pov_default: "Enge 3. Person, ggf. Multi-POV"
+series_support: true
+structure:
+  - {beat: "Gewöhnliche Welt", share: 0.08, purpose: "Weltbau durch Handlung, nicht Erklärung"}
+  - {beat: "Ruf", share: 0.05, purpose: "Konflikt, der Magie/Technik ins Spiel bringt"}
+  - {beat: "Schwelle", share: 0.07, purpose: "Eintritt in die besondere Welt"}
+  - {beat: "Prüfungen & Verbündete", share: 0.25, purpose: "Regeln des Magiesystems werden erfahren"}
+  - {beat: "Innerste Höhle", share: 0.1, purpose: "Annäherung an den Kern des Konflikts"}
+  - {beat: "Feuerprobe", share: 0.15, purpose: "Tiefster Verlust"}
+  - {beat: "Belohnung & Rückweg", share: 0.15, purpose: "Kosten der Macht"}
+  - {beat: "Auferstehung", share: 0.1, purpose: "Finale, Regeln werden clever genutzt"}
+  - {beat: "Rückkehr", share: 0.05, purpose: "Veränderte Welt / Serienhaken"}
+style_rules:
+  - "Magiesystem hat Kosten und Grenzen (Sandersons Gesetze)"
+  - "Fremdbegriffe sparsam, aus Kontext verständlich"
+  - "Weltbau-Infos nur, wenn die Szene sie braucht"
+  - "Setting beeinflusst Plot, nicht nur Kulisse"
+avoid:
+  - "Prolog voller Lore"
+  - "Auserwählter ohne eigene Leistung"
+  - "Magie, die Probleme ohne Preis löst"
+qa_checklist:
+  - "Sind Regeln/Kosten der Magie konsistent mit der Bible?"
+  - "Wird das Finale mit etablierten Regeln gelöst?"
+  - "Sind Namen/Begriffe konsistent geschrieben?"
+  - "Gibt es Info-Dumps, die gestrichen werden können?"

@@ -22,7 +22,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from contextos.commit import make_commit, patch_commit, promote_commit
 from contextos.log import ContextOSLog
@@ -32,7 +32,6 @@ from contextos.types import (
     Citation,
     Cluster,
     CommitOp,
-    EntryType,
     SSOTEntry,
     TruthGate,
     WorkEntry,
@@ -57,13 +56,12 @@ def _assert_citations(truth_gate: TruthGate, citations: list) -> None:  # type: 
 
 def _citations_to_json(citations: Any) -> str:
     return json.dumps(
-        [{"source_id": c.source_id, "relation": c.relation, "note": c.note}
-         for c in citations],
+        [{"source_id": c.source_id, "relation": c.relation, "note": c.note} for c in citations],
         default=str,
     )
 
 
-def _citations_from_json(raw: Optional[str]) -> List[Citation]:
+def _citations_from_json(raw: str | None) -> list[Citation]:
     if not raw:
         return []
     return [
@@ -125,8 +123,8 @@ class Register:
         self,
         entry: SSOTEntry,
         *,
-        actor: Optional[Actor] = None,
-        prev_content_hash: Optional[str] = None,
+        actor: Actor | None = None,
+        prev_content_hash: str | None = None,
         operation: CommitOp = CommitOp.PATCH,
     ) -> None:
         """
@@ -217,7 +215,7 @@ class Register:
                 ),
             )
 
-    def get_ssot(self, nkid: str) -> Optional[SSOTEntry]:
+    def get_ssot(self, nkid: str) -> SSOTEntry | None:
         """Return the SSOT entry for *nkid*, or None."""
         with sqlite3.connect(str(self._db_path)) as conn:
             row = conn.execute(
@@ -239,7 +237,7 @@ class Register:
             superseded_by=row[8],
         )
 
-    def all_ssot(self) -> List[SSOTEntry]:
+    def all_ssot(self) -> list[SSOTEntry]:
         """Return all SSOT entries (no filter)."""
         with sqlite3.connect(str(self._db_path)) as conn:
             rows = conn.execute(
@@ -248,16 +246,20 @@ class Register:
             ).fetchall()
         return [
             SSOTEntry(
-                nkid=r[0], content=r[1], truth_gate=TruthGate(r[2]),
+                nkid=r[0],
+                content=r[1],
+                truth_gate=TruthGate(r[2]),
                 citations=tuple(_citations_from_json(r[3])),
                 content_hash=r[4],
                 created_at=datetime.fromisoformat(r[5]),
-                cluster=Cluster(r[6]), actor=Actor(r[7]), superseded_by=r[8],
+                cluster=Cluster(r[6]),
+                actor=Actor(r[7]),
+                superseded_by=r[8],
             )
             for r in rows
         ]
 
-    def ssot_by_cluster(self, cluster: Cluster) -> List[SSOTEntry]:
+    def ssot_by_cluster(self, cluster: Cluster) -> list[SSOTEntry]:
         with sqlite3.connect(str(self._db_path)) as conn:
             rows = conn.execute(
                 "SELECT nkid,content,truth_gate,citations,content_hash,"
@@ -266,11 +268,15 @@ class Register:
             ).fetchall()
         return [
             SSOTEntry(
-                nkid=r[0], content=r[1], truth_gate=TruthGate(r[2]),
+                nkid=r[0],
+                content=r[1],
+                truth_gate=TruthGate(r[2]),
                 citations=tuple(_citations_from_json(r[3])),
                 content_hash=r[4],
                 created_at=datetime.fromisoformat(r[5]),
-                cluster=Cluster(r[6]), actor=Actor(r[7]), superseded_by=r[8],
+                cluster=Cluster(r[6]),
+                actor=Actor(r[7]),
+                superseded_by=r[8],
             )
             for r in rows
         ]
@@ -319,8 +325,8 @@ class Register:
         mkid: str,
         content: str,
         actor: Actor,
-        truth_gate: Optional[TruthGate] = None,
-        citations: Optional[List[Citation]] = None,
+        truth_gate: TruthGate | None = None,
+        citations: list[Citation] | None = None,
     ) -> None:
         """
         Patch a WORK entry in-place.
@@ -384,7 +390,7 @@ class Register:
                 (nkid, mkid),
             )
 
-    def get_work(self, mkid: str) -> Optional[WorkEntry]:
+    def get_work(self, mkid: str) -> WorkEntry | None:
         with sqlite3.connect(str(self._db_path)) as conn:
             row = conn.execute(
                 "SELECT mkid,content,truth_gate,citations,content_hash,"
@@ -395,16 +401,20 @@ class Register:
         if row is None:
             return None
         return WorkEntry(
-            mkid=row[0], content=row[1], truth_gate=TruthGate(row[2]),
+            mkid=row[0],
+            content=row[1],
+            truth_gate=TruthGate(row[2]),
             citations=_citations_from_json(row[3]),
             content_hash=row[4],
             created_at=datetime.fromisoformat(row[5]),
             modified_at=datetime.fromisoformat(row[6]),
-            cluster=Cluster(row[7]), actor=Actor(row[8]),
-            promoted=bool(row[9]), promoted_nkid=row[10],
+            cluster=Cluster(row[7]),
+            actor=Actor(row[8]),
+            promoted=bool(row[9]),
+            promoted_nkid=row[10],
         )
 
-    def all_work(self) -> List[WorkEntry]:
+    def all_work(self) -> list[WorkEntry]:
         with sqlite3.connect(str(self._db_path)) as conn:
             rows = conn.execute(
                 "SELECT mkid,content,truth_gate,citations,content_hash,"
@@ -412,13 +422,17 @@ class Register:
             ).fetchall()
         return [
             WorkEntry(
-                mkid=r[0], content=r[1], truth_gate=TruthGate(r[2]),
+                mkid=r[0],
+                content=r[1],
+                truth_gate=TruthGate(r[2]),
                 citations=_citations_from_json(r[3]),
                 content_hash=r[4],
                 created_at=datetime.fromisoformat(r[5]),
                 modified_at=datetime.fromisoformat(r[6]),
-                cluster=Cluster(r[7]), actor=Actor(r[8]),
-                promoted=bool(r[9]), promoted_nkid=r[10],
+                cluster=Cluster(r[7]),
+                actor=Actor(r[8]),
+                promoted=bool(r[9]),
+                promoted_nkid=r[10],
             )
             for r in rows
         ]

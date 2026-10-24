@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from contextos.types import Cluster, SSOTEntry, WorkEntry
 
@@ -25,10 +24,10 @@ class ContextOSIndex:
     Full entries are fetched from the Register on demand.
     """
 
-    def __init__(self, index_path: Optional[Path] = None) -> None:
+    def __init__(self, index_path: Path | None = None) -> None:
         self._index_path = index_path or (_DEFAULT_BASE / "index.json")
         # id → {"kind": "NK"|"MK", "cluster": str, "truth_gate": str}
-        self._data: Dict[str, dict] = {}  # type: ignore[type-arg]
+        self._data: dict[str, dict] = {}  # type: ignore[type-arg]
         self._load()
 
     # ------------------------------------------------------------------
@@ -45,9 +44,7 @@ class ContextOSIndex:
     def save(self) -> None:
         """Persist the current index to disk."""
         self._index_path.parent.mkdir(parents=True, exist_ok=True)
-        self._index_path.write_text(
-            json.dumps(self._data, indent=2), encoding="utf-8"
-        )
+        self._index_path.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Mutation
@@ -76,7 +73,9 @@ class ContextOSIndex:
         if mkid in self._data:
             self._data[mkid].update(kwargs)
 
-    def build_from_register(self, ssot_entries: List[SSOTEntry], work_entries: List[WorkEntry]) -> None:
+    def build_from_register(
+        self, ssot_entries: list[SSOTEntry], work_entries: list[WorkEntry]
+    ) -> None:
         """Rebuild the entire index from Register data."""
         self._data = {}
         for e in ssot_entries:
@@ -88,31 +87,28 @@ class ContextOSIndex:
     # Lookup
     # ------------------------------------------------------------------
 
-    def get(self, id_str: str) -> Optional[dict]:  # type: ignore[type-arg]
+    def get(self, id_str: str) -> dict | None:  # type: ignore[type-arg]
         """Return index metadata for *id_str*, or None if not found."""
         return self._data.get(id_str)
 
     def exists(self, id_str: str) -> bool:
         return id_str in self._data
 
-    def by_cluster(self, cluster: Cluster) -> List[str]:
+    def by_cluster(self, cluster: Cluster) -> list[str]:
         """Return all IDs belonging to *cluster*."""
         return [
-            id_str for id_str, meta in self._data.items()
-            if meta.get("cluster") == cluster.value
+            id_str for id_str, meta in self._data.items() if meta.get("cluster") == cluster.value
         ]
 
-    def by_kind(self, kind: str) -> List[str]:
+    def by_kind(self, kind: str) -> list[str]:
         """Return all IDs of the given kind ('NK' or 'MK')."""
-        return [
-            id_str for id_str, meta in self._data.items()
-            if meta.get("kind") == kind
-        ]
+        return [id_str for id_str, meta in self._data.items() if meta.get("kind") == kind]
 
-    def active_ssot(self) -> List[str]:
+    def active_ssot(self) -> list[str]:
         """Return NKIDs that have not been superseded."""
         return [
-            id_str for id_str, meta in self._data.items()
+            id_str
+            for id_str, meta in self._data.items()
             if meta.get("kind") == "NK" and not meta.get("superseded_by")
         ]
 
