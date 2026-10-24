@@ -1,0 +1,10 @@
+# Geprüfte Fehlalarme (keine echten Geheimnisse) — je Fund per Fingerprint, nicht pauschal.
+# Format: <commit>:<datei>:<regel>:<zeile>
+#
+# Platzhalter-Tokens in der Dispatch-Anleitung (Dev-Präfix-Token, kein Geheimnis):
+6ba57ede13ad293e30a350018e939e1a461075e4:.claude/commands/dispatch.md:curl-auth-header:52
+6ba57ede13ad293e30a350018e939e1a461075e4:.claude/commands/dispatch.md:curl-auth-header:95
+2eeaeb5b2b6b22f4732f9e832414657eb48a3162:.claude/commands/mobile-dispatch.md:curl-auth-header:116
+2eeaeb5b2b6b22f4732f9e832414657eb48a3162:.claude/commands/mobile-dispatch.md:curl-auth-header:125
+# Absichtlich manipuliertes JWT ("sub":"hacker") im Sicherheitstest — muss abgewiesen werden:
+da26ee9dcfd9b9c1c65fd1935e07a36c48a55d74:tests/level4_security.py:jwt:105

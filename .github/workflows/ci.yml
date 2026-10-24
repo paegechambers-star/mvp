@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       security-events: write
     steps:
       - uses: actions/checkout@v4
@@ -66,8 +67,9 @@ jobs:
 
       - name: Secrets scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --source . --no-git -v
+        env:
+          # Seit gitleaks-action v2.3 Pflicht für Pull Requests (liest die PR-Commits)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docs:
     needs: lint_test
