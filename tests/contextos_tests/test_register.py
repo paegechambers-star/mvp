@@ -11,7 +11,7 @@ from contextos.log import ContextOSLog
 from contextos.register import Register
 from contextos.store import sha256_of
 from contextos.types import Actor, Citation, Cluster, EntryType, Kind, SSOTEntry, TruthGate, WorkEntry
-from tests.contextos.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 
 def test_insert_and_get_ssot(register: Register):

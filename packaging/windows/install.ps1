@@ -105,13 +105,14 @@ if (-not $NoShortcut) {
     $s.TargetPath = $pyw
     $s.Arguments = "-m frapp.cli app"
     $s.WorkingDirectory = $base
-    $s.Description = "FraPP - mit SCRIPTOR (KI-Ghostwriter) und G.O.D.A.I."
+    $s.Description = "FraPP - Tagesplan, Kalender, SCRIPTOR, G.O.D.A.I., ContextOS"
     $s.Save()
   }
   Write-Host "Verknüpfungen angelegt (Desktop + Startmenü)."
 }
 
 Write-Host ""
-Write-Host "Fertig. Start: Desktop-Verknüpfung 'FraPP' (SCRIPTOR ist darin unter Bücher/Agent)."
+Write-Host "Fertig. Start: Desktop-Verknüpfung 'FraPP' (Tabs: Tagesplan, Kalender, Scriptor, G.O.D.A.I., ContextOS)."
+Write-Host "Daten: $env:APPDATA\FraPP (Termine, Aufgaben, ContextOS)  |  Bücher: Dokumente\Scriptor"
 Write-Host "CLI:  $venv\Scripts\frapp.exe --help   |   $venv\Scripts\frapp.exe scriptor --help"
 Write-Host "API-Key: in der App unter Einstellungen, oder: $venv\Scripts\frapp.exe scriptor config --set-api-key sk-ant-..."

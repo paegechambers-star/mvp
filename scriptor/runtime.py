@@ -33,7 +33,7 @@ def _make_governance(settings: Settings) -> Optional[Any]:
         return None
     cfg = load_config().get("governance", {})
     return GodaiGovernance(
-        token=str(cfg.get("token", "elevated-scriptor-local")),
+        trust=str(cfg.get("trust", "L2")),
         rate_limit=int(cfg.get("rate_limit", 100_000)),
     )
 

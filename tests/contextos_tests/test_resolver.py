@@ -6,7 +6,7 @@ import pytest
 
 from contextos.resolver import Resolver
 from contextos.types import Citation, Cluster, TruthGate
-from tests.contextos.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 
 def test_resolve_ssot_by_id(resolver: Resolver, register):

@@ -12,11 +12,15 @@ datas = [
     (str(PKG / "genres"), "scriptor/genres"),
     (str(PKG / "app" / "static"), "scriptor/app/static"),
     (str(ROOT / "godai" / "config"), "godai/config"),
+    (str(ROOT / "src" / "frapp" / "static"), "frapp/static"),
+    (str(ROOT / "contextos" / "policies"), "contextos/policies"),
 ]
 hiddenimports = (
     collect_submodules("scriptor")
     + collect_submodules("frapp")
     + collect_submodules("godai")
+    + collect_submodules("contextos")
+    + ["tzdata"]
     + collect_submodules("uvicorn")
     + ["keyring.backends.Windows", "webview.platforms.edgechromium", "docx"]
 )
@@ -26,7 +30,7 @@ a = Analysis(
     pathex=[str(ROOT), str(ROOT / "src")],
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "matplotlib", "numpy", "networkx"],
+    excludes=["tkinter", "matplotlib", "PyQt5"],
 )
 pyz = PYZ(a.pure)
 exe = EXE(

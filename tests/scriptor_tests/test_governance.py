@@ -22,12 +22,12 @@ def test_allowed_call_is_audited_in_mnemosyne(project):
 def test_memoir_is_sensitive_and_denied_below_l2(workspace):
     p = BookProject.create(workspace, "Leben", "memoir", "x")
     inner = make_llm()
-    low = GovernedLLM(inner, GodaiGovernance(token="basic-low"))  # L1 < L2
+    low = GovernedLLM(inner, GodaiGovernance(trust="L1"))  # L1 < L2
     with pytest.raises(PolicyDenied, match="THEMIS"):
         Ghostwriter(low).develop_bible(p)
     assert low.data_class == "SENSITIVE"
     assert not any(c["role"] == "bible" for c in inner.calls)  # Modell nie aufgerufen
-    ok = GovernedLLM(make_llm(), GodaiGovernance())  # elevated- → L2
+    ok = GovernedLLM(make_llm(), GodaiGovernance())  # Standard: JWT mit L2
     Ghostwriter(ok).develop_bible(p)
 
 
@@ -63,3 +63,15 @@ def test_parallel_threads_share_one_chain(project):
         t.join()
     st = gov.status()
     assert st["decisions"]["allowed"] == 40 and st["chain_ok"]
+
+
+def test_hermes_runs_in_strict_jwt_mode():
+    """Präfix-Tokens (dev_mode) dürfen nicht durchgehen — nur signierte JWTs."""
+    from godai.modules.hermes import AuthenticationError
+
+    gov = GodaiGovernance()
+    with pytest.raises(AuthenticationError):
+        gov._run(gov.hermes.normalize(token="internal-fake", user_id="x", protocol="http",
+                                      query="q", context={}))
+    gov.check("draft", "p", "INTERNAL")  # eigener JWT wird akzeptiert
+    assert gov.status()["decisions"]["allowed"] == 1

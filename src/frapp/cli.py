@@ -23,15 +23,42 @@ def serve(host: str = "127.0.0.1", port: int = 8000, reload: bool = True):
     uvicorn.run("frapp.api:app", host=host, port=port, reload=reload)
 
 
+def prepare_desktop() -> str:
+    """
+    Desktop-Modus vorbereiten (vor dem Import von frapp.api aufrufen):
+
+    - Datenbank unter %APPDATA%\\FraPP (bzw. ~/.local/share/frapp), falls DATABASE_URL fehlt
+    - ein zufälliger Zugriffsschlüssel pro Start für FraPP-API und SCRIPTOR
+    - API-Key aus dem OS-Tresor auch für den G.O.D.A.I.-Chat
+    Gibt den Schlüssel zurück.
+    """
+    from .paths import sqlite_url
+
+    if not os.environ.get("DATABASE_URL"):
+        settings.database_url = sqlite_url()
+    token = os.environ.get("FRAPP_SCRIPTOR_TOKEN") or secrets.token_urlsafe(24)
+    os.environ["FRAPP_SCRIPTOR_TOKEN"] = token
+    settings.api_key = token
+    if not settings.anthropic_api_key:
+        try:
+            from scriptor.settings import get_api_key
+
+            settings.anthropic_api_key = get_api_key() or ""
+        except ImportError:
+            pass
+    return token
+
+
 @app.command("app")
 def desktop(
     port: int = typer.Option(0, help="Port (0 = frei wählen)"),
     browser: bool = typer.Option(False, "--browser", help="Im Browser statt eigenem Fenster öffnen"),
 ):
-    """Desktop-App: FraPP + SCRIPTOR (+ G.O.D.A.I.) in einem Fenster."""
+    """Desktop-App: Tagesplan, Kalender, SCRIPTOR, G.O.D.A.I., ContextOS in einem Fenster."""
     from scriptor.app.launcher import ensure_streams, launch
 
     ensure_streams()
+    token = prepare_desktop()
     from .api import DOCKS, app as api_app
 
     scriptor = next((d for d in DOCKS if d.name == "scriptor"), None)
@@ -39,7 +66,7 @@ def desktop(
         typer.secho("SCRIPTOR-Dock nicht geladen (FRAPP_DISABLED_DOCKS?).", fg="red", err=True)
         raise typer.Exit(1)
     launch(scriptor.runtime, port=port, prefer_window=not browser,
-           asgi=api_app, token=scriptor.token, path="/scriptor/", title="FraPP")
+           asgi=api_app, token=token, path="/app/", title="FraPP")
 
 
 def _mount_dock_cli() -> None:

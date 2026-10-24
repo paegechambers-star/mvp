@@ -8,7 +8,7 @@ import pytest
 
 from contextos.index import ContextOSIndex
 from contextos.types import Cluster
-from tests.contextos.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 
 def test_add_ssot_and_lookup(index: ContextOSIndex):
@@ -56,7 +56,7 @@ def test_build_from_register(index: ContextOSIndex, register):
 def test_active_ssot_excludes_superseded(index: ContextOSIndex):
     nkid1 = make_nkid(0)
     nkid2 = make_nkid(1)
-    from tests.contextos.conftest import make_ssot
+    from tests.contextos_tests.conftest import make_ssot
     from contextos.types import SSOTEntry
     entry1 = make_ssot(nkid1)
     # Create a superseded variant

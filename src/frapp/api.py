@@ -448,6 +448,12 @@ from .planner.api import router as planner_router  # noqa: E402
 app.include_router(planner_router, dependencies=[Depends(require_api_key)])
 
 
+# ── ContextOS (Register lesen, Kette prüfen, IDs validieren) ──────────────────
+from .contextos_view import router as contextos_router  # noqa: E402
+
+app.include_router(contextos_router, dependencies=[Depends(require_api_key)])
+
+
 # ── Dispatch Handy → Desktop, MCP und Chat (G.O.D.A.I. Dispatch-Bridge) ──────
 # Eigene HERMES-Token-Prüfung; schreibende Befehle brauchen immer Bestätigung.
 _dispatch_mnemosyne = Mnemosyne()
@@ -456,6 +462,25 @@ _dispatch_bridge = DispatchBridge(mnemosyne=_dispatch_mnemosyne)
 app.include_router(build_router(_dispatch_bridge, _dispatch_hermes))
 app.include_router(build_mcp_router(_dispatch_bridge, _dispatch_hermes))
 app.include_router(chat_router)
+
+
+# ── Desktop-Oberfläche (Tabs: Tagesplan, Kalender, SCRIPTOR, G.O.D.A.I., ContextOS) ─
+from pathlib import Path as _Path  # noqa: E402
+
+from fastapi.responses import HTMLResponse, RedirectResponse  # noqa: E402
+
+_SHELL = _Path(__file__).parent / "static" / "shell.html"
+
+
+@app.get("/", include_in_schema=False)
+def _root():
+    return RedirectResponse("/app/")
+
+
+@app.get("/app/", response_class=HTMLResponse, include_in_schema=False)
+def _shell():
+    # Kein Geheimnis in der Seite: Zugriffsschlüssel kommt per URL-Fragment (#token=…)
+    return _SHELL.read_text(encoding="utf-8")
 
 
 # ── Docks (Plugins): z. B. SCRIPTOR unter /scriptor/ ─────────────────────────

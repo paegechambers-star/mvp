@@ -39,24 +39,30 @@ class GodaiGovernance:
     def __init__(
         self,
         policy_path: Optional[Path] = None,
-        token: str = "elevated-scriptor-local",
+        trust: str = "L2",
         user_id: str = "scriptor",
         rate_limit: int = 100_000,
     ) -> None:
+        import secrets
+
         from godai.modules.hermes import Hermes
         from godai.modules.mnemosyne import Mnemosyne
         from godai.modules.themis import Themis
         from godai.pipeline import _DEFAULT_POLICY_PATH
 
-        self._token = token
+        self._trust = trust
         self._user_id = user_id
+        # Eigener Signaturschlüssel; HERMES im strengen Modus akzeptiert nur gültige JWTs
+        self._secret = secrets.token_urlsafe(32)
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(
             target=self._loop.run_forever, name="godai-loop", daemon=True
         )
         self._thread.start()
         self.mnemosyne = Mnemosyne()
-        self.hermes = Hermes(self.mnemosyne, rate_limit=rate_limit)
+        self.hermes = Hermes(
+            self.mnemosyne, rate_limit=rate_limit, secret_key=self._secret, dev_mode=False
+        )
         self.themis = Themis(self.mnemosyne, policy_path=policy_path or _DEFAULT_POLICY_PATH)
         self.decisions = {"allowed": 0, "denied": 0}
 
@@ -67,10 +73,14 @@ class GodaiGovernance:
         """HERMES + THEMIS. Wirft :class:`PolicyDenied` bei Ablehnung."""
         from godai.modules.hermes import AuthenticationError, RateLimitError
 
+        from godai.models.request import TrustLevel
+        from godai.modules.hermes import create_token
+
         context = {"data_class": data_class, "action": f"scriptor.{role}", "book": book}
+        token = create_token(self._user_id, TrustLevel[self._trust], self._secret, expires_hours=1)
         try:
             request = self._run(self.hermes.normalize(
-                token=self._token, user_id=self._user_id, protocol="http",
+                token=token, user_id=self._user_id, protocol="http",
                 query=prompt, context=context,
             ))
         except (AuthenticationError, RateLimitError) as exc:

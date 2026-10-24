@@ -22,7 +22,7 @@ from contextos.commit import make_commit
 from contextos.id_generator import generate_id, validate_id
 from contextos.log import ContextOSLog, TamperDetectedError
 from contextos.types import Actor, Citation, Cluster, CommitBlock, CommitOp, EntryType, Kind, TruthGate
-from tests.contextos.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 
 # ── Invariant 1 ───────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import pytest
 
 from contextos.mkid_runner import MKIDRunner
 from contextos.resolver import Resolver
-from tests.contextos.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 
 def _runner(register, resolver) -> MKIDRunner:

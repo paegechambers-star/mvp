@@ -40,6 +40,7 @@ include = ["frapp*", "godai*", "contextos*", "scriptor*"]
 [tool.setuptools.package-data]
 scriptor = ["config.yaml", "genres/*.yaml", "app/static/*.html"]
 godai = ["config/policies/*.yaml", "config/routing/*.yaml"]
+frapp = ["static/*.html"]
 
 [project.scripts]
 scriptor = "scriptor.cli:main"

@@ -40,5 +40,5 @@ materials:
 
 # G.O.D.A.I.-Governance für alle Claude-Aufrufe (Policy: godai/config/policies/default.yaml)
 governance:
-  token: "elevated-scriptor-local"   # Präfix elevated- → Trust-Level L2 (erlaubt SENSITIVE)
+  trust: L2                          # Trust-Level im signierten JWT (L2 erlaubt SENSITIVE, z. B. Memoir)
   rate_limit: 100000                 # HERMES zählt Anfragen je Nutzer über die Laufzeit
