@@ -77,6 +77,7 @@ th{color:var(--muted);font-weight:500}
     <button data-view="books" class="active">Bücher</button>
     <button data-view="agent">Agent</button>
     <button data-view="plugins">Plugins</button>
+    <button data-view="system">System</button>
     <button data-view="settings">Einstellungen</button>
   </nav>
   <div class="spacer"></div>
@@ -135,6 +136,17 @@ th{color:var(--muted);font-weight:500}
     </div>
   </section>
 
+  <!-- SYSTEM -->
+  <section id="view-system" class="hidden">
+    <div class="card">
+      <h2>System</h2>
+      <div class="kv" id="sys-kv"></div>
+      <h3>G.O.D.A.I. – letzte Entscheidungen</h3>
+      <p class="muted">Jeder Claude-Aufruf: HERMES (Zugang, Datenklasse) → THEMIS (Policy, bindend) → MNEMOSYNE (Audit-Kette).</p>
+      <div class="tablewrap"><table id="sys-gov"></table></div>
+    </div>
+  </section>
+
   <!-- EINSTELLUNGEN -->
   <section id="view-settings" class="hidden">
     <div class="card" style="max-width:720px">
@@ -163,14 +175,15 @@ th{color:var(--muted);font-weight:500}
 // ---------------------------------------------------------------- Basis
 const TOKEN = (() => {
   const m = location.hash.match(/token=([^&]+)/);
-  if (m) { try { sessionStorage.setItem("scriptor-token", m[1]); } catch (e) {} history.replaceState(null, "", "/"); return m[1]; }
+  if (m) { try { sessionStorage.setItem("scriptor-token", m[1]); } catch (e) {} history.replaceState(null, "", location.pathname); return m[1]; }
   try { return sessionStorage.getItem("scriptor-token") || ""; } catch (e) { return ""; }
 })();
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
+  // relativ zur Seite: funktioniert unter / (SCRIPTOR allein) und /scriptor/ (in FraPP)
+  const res = await fetch(path.replace(/^\//, ""), {
     method: opts.method || "GET",
     headers: {"Content-Type": "application/json", "X-Scriptor-Token": TOKEN},
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -187,9 +200,10 @@ function readFiles(input) {
 // ---------------------------------------------------------------- Navigation
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
-  ["books", "agent", "plugins", "settings"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
+  ["books", "agent", "plugins", "system", "settings"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
   if (b.dataset.view === "plugins") loadPlugins();
   if (b.dataset.view === "settings") loadSettings();
+  if (b.dataset.view === "system") loadSystem();
 });
 
 // ---------------------------------------------------------------- Jobs
@@ -220,6 +234,7 @@ let INFO = null, GENRES = [];
 async function loadInfo() {
   INFO = await api("/api/info");
   $("#model").textContent = INFO.model;
+  if (INFO.host && INFO.host !== "SCRIPTOR") { $("header h1").textContent = INFO.host + " · SCRIPTOR"; document.title = INFO.host + " · SCRIPTOR"; }
   const k = $("#keystate");
   k.textContent = INFO.api_key === "missing" ? "API-Key fehlt" : "API-Key: " + INFO.api_key;
   k.className = "badge " + (INFO.api_key === "missing" ? "bad" : "ok");
@@ -427,7 +442,7 @@ function renderMaterial(tab, b) {
     <div class="row"><button class="btn fit" id="exp-md">Manuskript (Markdown)</button>
       ${INFO.docks.some(d => d.name === "docx_export" && d.loaded) ? `<button class="btn fit" id="exp-docx">Word (.docx)</button>` : `<span class="muted fit">Word-Export: python-docx installieren</span>`}</div>
     <h3>Dateien</h3>
-    <ul>${b.exports.map(f => `<li><a href="/api/books/${encodeURIComponent(current)}/export/${encodeURIComponent(f)}?token=${encodeURIComponent(TOKEN)}" download>${esc(f)}</a></li>`).join("") || "<li class='muted'>noch keine</li>"}</ul>`;
+    <ul>${b.exports.map(f => `<li><a href="api/books/${encodeURIComponent(current)}/export/${encodeURIComponent(f)}?token=${encodeURIComponent(TOKEN)}" download>${esc(f)}</a></li>`).join("") || "<li class='muted'>noch keine</li>"}</ul>`;
   $("#mat-go").onclick = () => action("material", {kind: $("#mat-kind").value}, "Material erzeugen");
   $("#exp-md").onclick = () => action("export", {});
   if ($("#exp-docx")) $("#exp-docx").onclick = () => action("export_docx", {});
@@ -483,6 +498,27 @@ $("#plugins-save").onclick = async () => {
   try { await api("/api/settings", {method: "PUT", body: {enabled_plugins, disabled_docks}}); alert("Gespeichert. SCRIPTOR neu starten, damit Plugins geladen werden."); }
   catch (e) { fail(e); }
 };
+
+// ---------------------------------------------------------------- System
+async function loadSystem() {
+  await loadInfo();
+  const g = await api("/api/governance");
+  let frapp = "nicht eingebettet (SCRIPTOR läuft allein)";
+  if (INFO.host === "FraPP") {
+    try { const h = await (await fetch("../healthz")).json(); frapp = `${h.app} ${h.version} – ${h.status}`; }
+    catch (e) { frapp = "nicht erreichbar"; }
+  }
+  $("#sys-kv").innerHTML = `
+    <span class="muted">FraPP</span><span>${esc(frapp)}</span>
+    <span class="muted">G.O.D.A.I.</span><span class="${g.active ? "pass" : "err"}">${g.active ? "aktiv" : "aus"}</span>
+    ${g.active ? `<span class="muted">Entscheidungen</span><span>${g.decisions.allowed} erlaubt · ${g.decisions.denied} abgelehnt</span>
+    <span class="muted">MNEMOSYNE-Kette</span><span class="${g.chain_ok ? "pass" : "err"}">${g.chain_ok ? "intakt" : "GEBROCHEN"} (${g.entries} Einträge)</span>` : ""}
+    <span class="muted">Modell</span><span>${esc(INFO.model)}</span>
+    <span class="muted">Workspace</span><span>${esc(INFO.workspace)}</span>`;
+  $("#sys-gov").innerHTML = g.active ? `<tr><th>Zeit</th><th>Modul</th><th>Ereignis</th><th>Details</th></tr>` +
+    g.recent.slice().reverse().map(e => `<tr><td>${esc((e.ts || "").slice(11, 19))}</td><td>${esc(e.module)}</td><td>${esc(e.type)}</td>
+      <td>${esc(Object.entries(e.data).map(([k, v]) => k + "=" + v).join(", "))}</td></tr>`).join("") : "";
+}
 
 // ---------------------------------------------------------------- Einstellungen
 async function loadSettings() {

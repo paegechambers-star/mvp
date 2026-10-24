@@ -46,6 +46,8 @@ class Genre:
     structure: List[Dict[str, Any]]
     pov_default: str = ""
     unit_label: str = "Kapitel"
+    # G.O.D.A.I.-Datenklasse (PUBLIC | INTERNAL | SENSITIVE | RESTRICTED) für THEMIS
+    data_class: str = "INTERNAL"
     series_support: bool = False
     style_rules: List[str] = field(default_factory=list)
     avoid: List[str] = field(default_factory=list)

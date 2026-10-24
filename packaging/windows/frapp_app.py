@@ -1,7 +1,8 @@
 """
-Einstiegspunkt der Windows-App (PyInstaller).
+Einstiegspunkt der Windows-App FraPP (PyInstaller): FraPP + SCRIPTOR + G.O.D.A.I.
 
-Ohne Argumente: Desktop-App starten. Mit Argumenten: CLI (z. B. ``Scriptor.exe docks``).
+Ohne Argumente: Desktop-App starten. Mit Argumenten: FraPP-CLI
+(z. B. ``FraPP.exe scriptor genres``, ``FraPP.exe version``).
 """
 
 import os
@@ -27,15 +28,11 @@ os.environ.setdefault("PYTHONUTF8", "1")
 
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        from scriptor.cli import main as cli_main
+    from frapp.cli import main as cli_main
 
-        cli_main()
-        return
-    from scriptor.app.launcher import launch
-    from scriptor.runtime import Runtime
-
-    launch(Runtime.create())
+    if len(sys.argv) == 1:
+        sys.argv.append("app")  # Doppelklick → Desktop-App
+    cli_main()
 
 
 if __name__ == "__main__":

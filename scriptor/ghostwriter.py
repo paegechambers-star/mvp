@@ -200,12 +200,19 @@ class Ghostwriter:
         self.llm = llm
         self.cfg = config or load_config()
 
+    def _govern(self, project: BookProject) -> None:
+        """Datenklasse/Buch an eine G.O.D.A.I.-gesteuerte LLM-Schicht melden (falls vorhanden)."""
+        setter = getattr(self.llm, "set_context", None)
+        if setter is not None:
+            setter(data_class=project.genre.data_class, book=project.slug)
+
     def _effort(self, step: str) -> str:
         return str(self.cfg["effort"].get(step, "high"))
 
     # -- Bible ---------------------------------------------------------
 
     def develop_bible(self, project: BookProject, notes: str = "") -> str:
+        self._govern(project)
         g = project.genre
         sources = project.sources_text()
         prompt = (
@@ -233,6 +240,7 @@ class Ghostwriter:
     # -- Outline -------------------------------------------------------
 
     def develop_outline(self, project: BookProject, chapters: Optional[int] = None) -> str:
+        self._govern(project)
         if "premise" not in project.bible:
             raise ProjectError("Erst die Bible entwickeln (scriptor bible)")
         g = project.genre
@@ -263,6 +271,7 @@ class Ghostwriter:
     # -- Voice ---------------------------------------------------------
 
     def learn_voice(self, project: BookProject, samples: List[Path], describe: bool = True) -> str:
+        self._govern(project)
         text = "\n\n".join(p.read_text(encoding="utf-8") for p in samples)
         metrics = voice.analyze(text)
         if metrics.get("words", 0) < 300:
@@ -294,6 +303,7 @@ class Ghostwriter:
         return " ".join(words[-int(self.cfg["context"]["previous_tail_words"]):])
 
     def draft_chapter(self, project: BookProject, nr: int) -> int:
+        self._govern(project)
         plan = project.chapter_plan(nr)
         g = project.genre
         sources = "" if g.fiction else project.sources_text()
@@ -340,6 +350,7 @@ class Ghostwriter:
         }
 
     def review_chapter(self, project: BookProject, nr: int) -> ChapterResult:
+        self._govern(project)
         latest = project.latest_chapter(nr)
         if latest is None:
             raise ProjectError(f"Kapitel {nr} hat noch keinen Text")
@@ -365,6 +376,7 @@ class Ghostwriter:
         )
 
     def revise_chapter(self, project: BookProject, nr: int, instructions: str = "") -> int:
+        self._govern(project)
         latest = project.latest_chapter(nr)
         if latest is None:
             raise ProjectError(f"Kapitel {nr} hat noch keinen Text")

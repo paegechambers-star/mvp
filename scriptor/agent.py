@@ -295,6 +295,7 @@ class Agent:
         if kind not in materials:
             raise ValueError(f"Unbekannte Materialart. Erlaubt: {sorted(materials)}")
         p = self._book(slug)
+        self.gw._govern(p)
         summaries = p.summaries_before(len(p.outline) + 1)
         outline = "\n".join(f"{c['nr']}. {c['title']}: {c['summary']}" for c in p.outline)
         text = self.gw.llm.complete(

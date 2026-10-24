@@ -1,6 +1,8 @@
-# Installiert SCRIPTOR für den aktuellen Windows-Benutzer (ohne Adminrechte).
+# Installiert FraPP (mit SCRIPTOR-Dock, G.O.D.A.I. und ContextOS) für den aktuellen
+# Windows-Benutzer, ohne Adminrechte.
 #   PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\install.ps1
-# Legt an: %LOCALAPPDATA%\Scriptor\venv, Desktop- und Startmenü-Verknüpfung "SCRIPTOR".
+# Legt an: %LOCALAPPDATA%\FraPP\venv, Desktop- und Startmenü-Verknüpfung "FraPP".
+# Eine ältere Einzel-Installation von SCRIPTOR wird entfernt (Bücher/Einstellungen bleiben).
 Param(
   [switch]$NoShortcut,
   # Optional: Pfad zu einer bestimmten python.exe (sonst automatische Wahl 3.12 > 3.13 > 3.11 > 3.10)
@@ -50,8 +52,16 @@ if ($supported -notcontains $pyver) {
 }
 Write-Host "Verwende Python $pyver."
 
-# 2) venv (bei falscher Python-Version neu anlegen) + Pakete
-$base = Join-Path $env:LOCALAPPDATA "Scriptor"
+# 2) Alte SCRIPTOR-Einzelinstallation aufräumen (Code-Umgebung + Verknüpfungen; Daten bleiben)
+$oldVenv = Join-Path $env:LOCALAPPDATA "Scriptor\venv"
+if (Test-Path $oldVenv) { Write-Host "Entferne alte SCRIPTOR-Umgebung ..."; Remove-Item -Recurse -Force $oldVenv }
+foreach ($folder in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFolderPath("Programs"))) {
+  $oldLnk = Join-Path $folder "SCRIPTOR.lnk"
+  if (Test-Path $oldLnk) { Remove-Item -Force $oldLnk }
+}
+
+# 3) venv (bei falscher Python-Version neu anlegen) + Pakete
+$base = Join-Path $env:LOCALAPPDATA "FraPP"
 $venv = Join-Path $base "venv"
 $py = Join-Path $venv "Scripts\python.exe"
 if (Test-Path $venv) {
@@ -76,31 +86,32 @@ if ($LASTEXITCODE -ne 0) {
     "Mit Python 3.12 erneut versuchen: 'py install 3.12' bzw. python.org.")
 }
 
-# 3) Rauchtest
-& $py -m scriptor genres | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Rauchtest fehlgeschlagen" }
+# 4) Rauchtest: alle Schichten importierbar, SCRIPTOR als FraPP-Dock erreichbar
+& $py -c "import frapp.api, godai.pipeline, contextos, scriptor.governance" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Rauchtest fehlgeschlagen: FraPP/G.O.D.A.I./ContextOS/SCRIPTOR nicht importierbar" }
+& $py -m frapp.cli scriptor genres | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Rauchtest fehlgeschlagen: 'frapp scriptor genres'" }
 
-# 4) Verknüpfungen (pythonw = ohne Konsolenfenster)
+# 5) Verknüpfungen (pythonw = ohne Konsolenfenster)
 if (-not $NoShortcut) {
   $pyw = Join-Path $venv "Scripts\pythonw.exe"
   $shell = New-Object -ComObject WScript.Shell
   $targets = @(
-    (Join-Path ([Environment]::GetFolderPath("Desktop")) "SCRIPTOR.lnk"),
-    (Join-Path ([Environment]::GetFolderPath("Programs")) "SCRIPTOR.lnk")
+    (Join-Path ([Environment]::GetFolderPath("Desktop")) "FraPP.lnk"),
+    (Join-Path ([Environment]::GetFolderPath("Programs")) "FraPP.lnk")
   )
   foreach ($lnk in $targets) {
     $s = $shell.CreateShortcut($lnk)
     $s.TargetPath = $pyw
-    $s.Arguments = "-m scriptor app"
+    $s.Arguments = "-m frapp.cli app"
     $s.WorkingDirectory = $base
-    $s.Description = "SCRIPTOR - KI-Ghostwriter"
+    $s.Description = "FraPP - mit SCRIPTOR (KI-Ghostwriter) und G.O.D.A.I."
     $s.Save()
   }
   Write-Host "Verknüpfungen angelegt (Desktop + Startmenü)."
 }
 
-# 5) CLI im Benutzer-PATH verfügbar machen (optional, nur Hinweis)
 Write-Host ""
-Write-Host "Fertig. Start: Desktop-Verknüpfung 'SCRIPTOR'."
-Write-Host "CLI: $venv\Scripts\scriptor.exe --help"
-Write-Host "API-Key: in der App unter Einstellungen, oder: $venv\Scripts\scriptor.exe config --set-api-key sk-ant-..."
+Write-Host "Fertig. Start: Desktop-Verknüpfung 'FraPP' (SCRIPTOR ist darin unter Bücher/Agent)."
+Write-Host "CLI:  $venv\Scripts\frapp.exe --help   |   $venv\Scripts\frapp.exe scriptor --help"
+Write-Host "API-Key: in der App unter Einstellungen, oder: $venv\Scripts\frapp.exe scriptor config --set-api-key sk-ant-..."

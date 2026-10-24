@@ -66,15 +66,31 @@ def _free_port() -> int:
         return int(s.getsockname()[1])
 
 
-def start_server(rt: Runtime, port: int = 0) -> tuple[Any, str]:
-    """Startet uvicorn im Hintergrund-Thread. Gibt (server, url) zurück."""
+def start_server(
+    rt: Runtime,
+    port: int = 0,
+    asgi: Any = None,
+    token: Optional[str] = None,
+    path: str = "/",
+) -> tuple[Any, str]:
+    """
+    Startet uvicorn im Hintergrund-Thread. Gibt (server, url) zurück.
+
+    Standard: SCRIPTOR allein. Mit ``asgi``/``token``/``path`` wird eine fremde App
+    gestartet, in die SCRIPTOR eingebettet ist (FraPP: ``path="/scriptor/"``).
+    """
     import uvicorn
 
-    from scriptor.app.server import create_app
-
-    token = secrets.token_urlsafe(24)
     port = port or _free_port()
-    app = create_app(rt, token)
+    if asgi is None:
+        from scriptor.app.server import create_app
+
+        token = secrets.token_urlsafe(24)
+        app = create_app(rt, token)
+    else:
+        if not token:
+            raise ValueError("token ist bei eigener ASGI-App Pflicht")
+        app = asgi
     # use_colors=False: uvicorn ruft sonst sys.stdout.isatty() auf (Absturz unter pythonw)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", use_colors=False)
     server = uvicorn.Server(config)
@@ -94,17 +110,17 @@ def start_server(rt: Runtime, port: int = 0) -> tuple[Any, str]:
             detail = f": {type(errors[0]).__name__}: {errors[0]}" if errors else ""
             raise RuntimeError(f"Server konnte nicht starten{detail}")
         time.sleep(0.05)
-    return server, f"http://127.0.0.1:{port}/#token={token}"
+    return server, f"http://127.0.0.1:{port}{path}#token={token}"
 
 
-def _open_window(url: str) -> bool:
+def _open_window(url: str, title: str = "SCRIPTOR") -> bool:
     """Eigenes Fenster (pywebview). False, wenn nicht möglich → Browser-Fallback."""
     try:
         import webview
     except ImportError:
         return False
     try:
-        webview.create_window("SCRIPTOR", url, width=1400, height=900, min_size=(900, 600))
+        webview.create_window(title, url, width=1400, height=900, min_size=(900, 600))
         webview.start()
         return True
     except Exception:  # noqa: BLE001 - z. B. WebView2/pythonnet fehlt
@@ -112,21 +128,29 @@ def _open_window(url: str) -> bool:
         return False
 
 
-def launch(rt: Runtime, port: int = 0, prefer_window: bool = True) -> None:
+def launch(
+    rt: Runtime,
+    port: int = 0,
+    prefer_window: bool = True,
+    asgi: Any = None,
+    token: Optional[str] = None,
+    path: str = "/",
+    title: str = "SCRIPTOR",
+) -> None:
     logfile = ensure_streams()
     try:
-        server, url = start_server(rt, port)
+        server, url = start_server(rt, port, asgi=asgi, token=token, path=path)
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc()
         hint = f"\n\nDetails: {logfile}" if logfile else ""
-        _show_error(f"SCRIPTOR konnte nicht starten.\n\n{exc}{hint}")
+        _show_error(f"{title} konnte nicht starten.\n\n{exc}{hint}")
         raise SystemExit(1) from exc
     try:
-        if prefer_window and _open_window(url):
+        if prefer_window and _open_window(url, title):
             return
         opened = webbrowser.open(url)
         print(
-            ("SCRIPTOR läuft im Browser." if opened else "Browser bitte manuell öffnen:")
+            (f"{title} läuft im Browser." if opened else "Browser bitte manuell öffnen:")
             + f"\n  {url}\nZum Beenden Strg+C drücken.",
             flush=True,
         )

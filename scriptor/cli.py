@@ -348,12 +348,22 @@ def config_cmd(
     typer.echo(f"Plugins frei:  {', '.join(s.enabled_plugins) or '—'}")
 
 
+_cli_built = False
+
+
+def build_app() -> typer.Typer:
+    """Typer-App inkl. Dock-CLI-Befehle (einmalig eingehängt). Auch für ``frapp scriptor``."""
+    global _cli_built
+    if not _cli_built:
+        for name, sub in _rt().docks.cli.items():
+            app.add_typer(sub, name=name)
+        _cli_built = True
+    return app
+
+
 def main() -> None:
     """Einstiegspunkt: Dock-CLI-Befehle einhängen, dann Typer starten."""
-    rt = _rt()
-    for name, sub in rt.docks.cli.items():
-        app.add_typer(sub, name=name)
-    app()
+    build_app()()
 
 
 if __name__ == "__main__":

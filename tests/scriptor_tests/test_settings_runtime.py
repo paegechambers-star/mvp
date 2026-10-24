@@ -43,5 +43,8 @@ def test_no_keyring_reports_false(monkeypatch):
 def test_runtime_uses_settings(tmp_path):
     s = st.Settings(workspace=str(tmp_path / "w"))
     rt = Runtime.create(s, llm_factory=lambda rt: "LLM", include_entry_points=False)
-    assert rt.workspace.exists() and rt.llm() == "LLM"
+    assert rt.workspace.exists() and rt.llm().inner == "LLM"  # von G.O.D.A.I. umhüllt
+    s.governance = False
+    raw = Runtime.create(s, llm_factory=lambda rt: "LLM", include_entry_points=False)
+    assert raw.governance is None and raw.llm() == "LLM"
     assert any(i.name == "lesbarkeit" for i in rt.docks.infos)

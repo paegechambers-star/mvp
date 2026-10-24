@@ -11,6 +11,7 @@ dependencies = [
     "typer>=0.9.0",
     "pyyaml>=6.0",
     "anthropic>=2.3.0",
+    "networkx>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -37,9 +38,11 @@ include = ["frapp*", "godai*", "contextos*", "scriptor*"]
 
 [tool.setuptools.package-data]
 scriptor = ["config.yaml", "genres/*.yaml", "app/static/*.html"]
+godai = ["config/policies/*.yaml", "config/routing/*.yaml"]
 
 [project.scripts]
 scriptor = "scriptor.cli:main"
+frapp = "frapp.cli:main"
 
 [tool.black]
 line-length = 100

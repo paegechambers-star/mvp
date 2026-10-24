@@ -22,10 +22,10 @@ Das Büro arbeitet mit Claude (einer KI von Anthropic). Dafür brauchst du einen
 **Weg A: fertige App (ohne Python)**
 
 1. Öffne auf GitHub das Repo `paegechambers-star/mvp`, Reiter **Actions**.
-2. Links **SCRIPTOR Windows** wählen, oben den neuesten Lauf mit grünem Haken anklicken.
-3. Ganz unten unter **Artifacts** auf **Scriptor-windows** klicken. Das lädt eine ZIP-Datei.
+2. Links **FraPP Windows** wählen, oben den neuesten Lauf mit grünem Haken anklicken.
+3. Ganz unten unter **Artifacts** auf **FraPP-windows** klicken. Das lädt eine ZIP-Datei.
 4. Die ZIP entpacken (Rechtsklick → **Alle extrahieren**), z. B. nach `C:\Programme-Eigene\Scriptor`.
-5. Im Ordner `Scriptor` die Datei **Scriptor.exe** doppelklicken.
+5. Im Ordner `FraPP` die Datei **FraPP.exe** doppelklicken.
 6. Windows warnt eventuell („Der Computer wurde durch Windows geschützt“). Das liegt daran,
    dass die App nicht signiert ist. Klick auf **Weitere Informationen → Trotzdem ausführen**.
 
@@ -44,7 +44,7 @@ Das Büro arbeitet mit Claude (einer KI von Anthropic). Dafür brauchst du einen
    ```powershell
    PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\install.ps1
    ```
-5. Danach liegt auf dem Desktop eine Verknüpfung **SCRIPTOR**. Doppelklick, fertig.
+5. Danach liegt auf dem Desktop eine Verknüpfung **FraPP**. Doppelklick, fertig.
 
 ## Schritt 3: Schlüssel eintragen (einmalig)
 

@@ -1,12 +1,12 @@
 """
-Gemeinsame Laufzeit für CLI und Desktop-App: Einstellungen, Docks, LLM.
+Gemeinsame Laufzeit für CLI und Desktop-App: Einstellungen, Docks, LLM, Governance.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from scriptor.audit import AuditLog
 from scriptor.docks import DockRegistry, discover
@@ -22,11 +22,28 @@ def anthropic_factory(rt: "Runtime") -> LLM:
     )
 
 
+def _make_governance(settings: Settings) -> Optional[Any]:
+    """G.O.D.A.I.-Instanz oder None (abgeschaltet bzw. godai nicht installiert)."""
+    if not settings.governance:
+        return None
+    try:
+        from scriptor.ghostwriter import load_config
+        from scriptor.governance import GodaiGovernance
+    except ImportError:
+        return None
+    cfg = load_config().get("governance", {})
+    return GodaiGovernance(
+        token=str(cfg.get("token", "elevated-scriptor-local")),
+        rate_limit=int(cfg.get("rate_limit", 100_000)),
+    )
+
+
 @dataclass
 class Runtime:
     settings: Settings
     docks: DockRegistry
     llm_factory: LLMFactory = anthropic_factory
+    governance: Optional[Any] = None
 
     @property
     def workspace(self) -> Path:
@@ -35,7 +52,12 @@ class Runtime:
         return ws
 
     def llm(self) -> LLM:
-        return self.llm_factory(self)
+        llm = self.llm_factory(self)
+        if self.governance is not None:
+            from scriptor.governance import GovernedLLM
+
+            return GovernedLLM(llm, self.governance)
+        return llm
 
     @classmethod
     def create(
@@ -51,4 +73,4 @@ class Runtime:
             disabled=s.disabled_docks,
             include_entry_points=include_entry_points,
         )
-        return cls(s, docks, llm_factory)
+        return cls(s, docks, llm_factory, _make_governance(s))

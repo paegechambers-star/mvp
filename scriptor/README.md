@@ -4,7 +4,11 @@ Schreibt Bücher aller Arten im Namen der Autorin/des Autors — von der Idee bi
 exportierten Manuskript inkl. Exposé, Klappentext und Agentur-Anschreiben. Läuft über
 die Claude-API (Default: `claude-opus-5-5`).
 
-## Windows-App
+## Windows-App (als Teil von FraPP)
+
+SCRIPTOR ist ein **FraPP-Dock**: Installiert wird FraPP (mit G.O.D.A.I. und ContextOS), SCRIPTOR
+läuft darin unter `/scriptor/`. Jeder Claude-Aufruf geht durch **G.O.D.A.I.** (HERMES → THEMIS →
+MNEMOSYNE); die App zeigt die Entscheidungen unter **System**.
 
 **Variante A: Installer-Skript** (ohne Adminrechte; **Python 3.12** empfohlen, 3.10–3.13 unterstützt)
 
@@ -19,14 +23,21 @@ Das Skript wählt automatisch 3.12 > 3.13 > 3.11 > 3.10 und ignoriert neuere Ver
 für diese gibt es noch keine fertigen Pakete, pip würde einen C++-Compiler verlangen.
 Eigene Python-Version erzwingen: `install.ps1 -Python C:\Pfad\zu\python.exe`.
 
-Das Skript legt `%LOCALAPPDATA%\Scriptor\venv` und eine Verknüpfung **SCRIPTOR** auf dem
-Desktop und im Startmenü an. Die App öffnet sich in einem eigenen Fenster (Edge WebView2,
+Das Skript legt `%LOCALAPPDATA%\FraPP\venv` und eine Verknüpfung **FraPP** auf dem
+Desktop und im Startmenü an (eine alte SCRIPTOR-Einzelinstallation wird entfernt, Daten bleiben). Die App öffnet sich in einem eigenen Fenster (Edge WebView2,
 ab Windows 10/11 vorinstalliert).
 
 **Variante B: fertige EXE** (ohne Python)
-GitHub → Actions → „SCRIPTOR Windows“ → letzter grüner Lauf → Artefakt `Scriptor-windows`.
-ZIP entpacken und `Scriptor\Scriptor.exe` starten. Selbst bauen:
-`.\packaging\windows\build.ps1` (erzeugt `dist\Scriptor-windows.zip`).
+GitHub → Actions → „FraPP Windows“ → letzter grüner Lauf → Artefakt `FraPP-windows`.
+ZIP entpacken und `FraPP\FraPP.exe` starten. Selbst bauen:
+`.\packaging\windows\build.ps1` (erzeugt `dist\FraPP-windows.zip`).
+
+| Befehl | Wirkung |
+|---|---|
+| `frapp app` | Desktop-App (FraPP + SCRIPTOR) |
+| `frapp serve` | FraPP-API; SCRIPTOR unter `http://127.0.0.1:8000/scriptor/#token=…` (URL wird ausgegeben) |
+| `frapp scriptor …` | alle SCRIPTOR-Befehle (`genres`, `new`, `write-book`, …) |
+| `GET /v1/docks` | geladene FraPP-Docks |
 
 **Erster Start:** Einstellungen → API-Key eintragen. Er wird in der Windows-Anmeldeinformations­verwaltung
 gespeichert, nie in einer Datei.
@@ -116,7 +127,9 @@ scriptor lesbarkeit buch <slug>        # CLI-Befehl aus einem Dock
 | Docks | `docks/` | Plugin-Registry; Fehler isoliert und zurückgerollt; Ordner-Plugins nur mit Freigabe |
 | Laufzeit | `runtime.py`, `settings.py` | Einstellungen (Plattform-Pfade), API-Key im OS-Tresor, LLM-Fabrik |
 | App | `app/` | FastAPI-Server (Token, nur localhost), Hintergrund-Jobs, Oberfläche, Launcher |
-| Windows | `packaging/windows/` | `install.ps1`, `build.ps1` (PyInstaller), `Scriptor.bat` |
+| Governance | `governance.py` | Jeder Claude-Aufruf: G.O.D.A.I. HERMES (Trust, Datenklasse aus Buchart) → THEMIS (Policy, bindend) → MNEMOSYNE |
+| FraPP-Dock | `src/frapp/docks/scriptor.py` | Mount unter `/scriptor/`, CLI `frapp scriptor`, Token-Prüfung auch eingebettet |
+| Windows | `packaging/windows/` | `install.ps1`, `build.ps1` (PyInstaller → `FraPP.exe`), `FraPP.bat` |
 
 Ablage je Buch: `books/<slug>/{ssot,work,export}/`, `register.jsonl`, `audit.jsonl`.
 

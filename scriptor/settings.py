@@ -48,6 +48,8 @@ class Settings:
     workspace: str = ""
     model: str = "claude-opus-5-5"
     web_search: bool = False
+    # Jeder Claude-Aufruf läuft durch G.O.D.A.I. (HERMES/THEMIS/MNEMOSYNE)
+    governance: bool = True
     # Ordner-Plugins laufen nur, wenn ihr Name hier steht (beliebiger Code!)
     enabled_plugins: List[str] = field(default_factory=list)
     # Docks (eingebaut / Entry-Point), die abgeschaltet sind

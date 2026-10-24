@@ -118,7 +118,13 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         host = (request.headers.get("host") or "").split(":")[0]
         if host not in _ALLOWED_HOSTS:
             return JSONResponse({"detail": "Host nicht erlaubt"}, status_code=403)
-        if request.url.path.startswith("/api/"):
+        # Relativer Pfad: bei Einbettung in FraPP (Mount unter /scriptor) enthält
+        # scope["path"] das Präfix — die Token-Prüfung muss trotzdem greifen.
+        path = request.scope.get("path", "")
+        root = request.scope.get("root_path", "")
+        if root and path.startswith(root):
+            path = path[len(root):]
+        if path.startswith("/api/") or path == "/api":
             given = request.headers.get("x-scriptor-token") or request.query_params.get("token", "")
             if not hmac.compare_digest(given, token):
                 return JSONResponse({"detail": "Token fehlt oder falsch"}, status_code=401)
@@ -150,7 +156,15 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
             "plugin_dir": str(rt.settings.plugin_dir()),
             "docks": [i.__dict__ for i in rt.docks.infos],
             "materials": sorted({**load_config()["materials"], **rt.docks.materials}),
+            "governance": rt.governance is not None,
+            "host": getattr(app.state, "host_app", "SCRIPTOR"),
         }
+
+    @app.get("/api/governance")
+    def governance() -> Dict[str, Any]:
+        if rt.governance is None:
+            return {"active": False}
+        return dict(rt.governance.status())
 
     @app.get("/api/settings")
     def get_settings() -> Dict[str, Any]:
