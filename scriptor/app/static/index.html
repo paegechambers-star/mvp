@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCRIPTOR</title>
+<style>
+:root{
+  --bg:#f6f5f2;--panel:#ffffff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;
+  --accent:#3b5bdb;--accent-ink:#fff;--ok:#2b8a3e;--warn:#c77d00;--bad:#c92a2a;--soft:#eef1fb;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141416;--panel:#1d1d21;--ink:#ececf0;--muted:#9a9aa3;--line:#2e2e35;
+  --accent:#7b93ff;--accent-ink:#0b0b10;--ok:#69db7c;--warn:#ffc078;--bad:#ff8787;--soft:#23263a;
+}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;letter-spacing:.12em;margin:0 12px 0 0}
+nav button{background:none;border:0;color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;font:inherit}
+nav button.active{color:var(--ink);background:var(--soft)}
+.spacer{flex:1}
+.badge{white-space:nowrap;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.badge.ok{color:var(--ok)}.badge.bad{color:var(--bad)}.badge.warn{color:var(--warn)}
+main{padding:18px;max-width:1500px;margin:0 auto}
+.layout{display:grid;grid-template-columns:260px 1fr;gap:18px}
+.layout>*,.grid2>*{min-width:0}
+.tablewrap{overflow-x:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.card h3{font-size:13px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.list a{display:block;padding:7px 9px;border-radius:6px;color:inherit;text-decoration:none;cursor:pointer}
+.list a.active,.list a:hover{background:var(--soft)}
+.list small{color:var(--muted);display:block}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+textarea{min-height:90px;resize:vertical}
+textarea.editor{min-height:60vh;font:15px/1.7 Georgia,"Times New Roman",serif}
+textarea.code{min-height:55vh;font:13px/1.5 var(--mono)}
+button.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.small{padding:2px 8px;font-size:12px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.row>*{flex:1}.row>.fit{flex:0 0 auto}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 14px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--muted);cursor:pointer;font:inherit}
+.tabs button.active{color:var(--ink);border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500}
+.pass{color:var(--ok);font-weight:600}.revise{color:var(--warn);font-weight:600}
+.muted{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 340px;gap:14px}
+.issue{border-left:3px solid var(--line);padding:4px 8px;margin:6px 0}
+.issue.blocker{border-color:var(--bad)}.issue.major{border-color:var(--warn)}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:62vh;overflow:auto;padding-right:4px}
+.msg{padding:9px 12px;border-radius:10px;white-space:pre-wrap;max-width:85%}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+.msg.answer,.msg.text{background:var(--soft)}
+.msg.tool,.msg.approval{font:12px var(--mono);color:var(--muted);background:none;padding:2px 6px}
+#jobs{position:fixed;right:16px;bottom:16px;width:min(360px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;z-index:9}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.job pre{margin:4px 0 0;max-height:120px;overflow:auto;white-space:pre-wrap;font:11px var(--mono)}
+.err{color:var(--bad)}
+.hidden{display:none}
+.kv{display:grid;grid-template-columns:160px 1fr;gap:4px 10px;font-size:13px}
+@media (max-width:900px){.layout,.grid2{grid-template-columns:1fr}main{padding:12px}nav button{padding:6px 6px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>SCRIPTOR</h1>
+  <nav id="nav">
+    <button data-view="books" class="active">Bücher</button>
+    <button data-view="agent">Agent</button>
+    <button data-view="plugins">Plugins</button>
+    <button data-view="settings">Einstellungen</button>
+  </nav>
+  <div class="spacer"></div>
+  <span id="model" class="badge"></span>
+  <span id="keystate" class="badge"></span>
+</header>
+
+<main>
+  <!-- BÜCHER -->
+  <section id="view-books" class="layout">
+    <div>
+      <div class="card">
+        <h2>Bücher</h2>
+        <div id="booklist" class="list"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h2>Neues Buch</h2>
+        <label>Titel</label><input id="nb-title">
+        <label>Buchart</label><select id="nb-genre"></select>
+        <label>Idee / Prämisse</label><textarea id="nb-idea"></textarea>
+        <label>Autor:in</label><input id="nb-author">
+        <div style="margin-top:10px"><button class="btn primary" id="nb-create">Anlegen</button></div>
+      </div>
+    </div>
+    <div class="card" id="book">
+      <p class="muted">Buch links wählen oder neu anlegen.</p>
+    </div>
+  </section>
+
+  <!-- AGENT -->
+  <section id="view-agent" class="hidden">
+    <div class="card">
+      <h2>Agent</h2>
+      <p class="muted">Aufträge in eigenen Worten. Beispiel: „Leg ein Bilderbuch über einen ängstlichen Leuchtturm an, entwickle Bible und Outline.“</p>
+      <div id="chat" class="chat"></div>
+      <div class="row" style="margin-top:12px">
+        <textarea id="agent-input" style="min-height:70px" placeholder="Auftrag …"></textarea>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="fit" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="agent-allow" style="width:auto"> teure Werkzeuge erlauben (Bible, Kapitel, Komplettlauf)</label>
+        <div class="spacer"></div>
+        <button class="btn fit" id="agent-new">Neue Sitzung</button>
+        <button class="btn primary fit" id="agent-send">Senden</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLUGINS -->
+  <section id="view-plugins" class="hidden">
+    <div class="card">
+      <h2>Plugins (Docks)</h2>
+      <p class="muted">Eingebaute Docks, pip-Pakete (Entry-Point <code>scriptor.docks</code>) und Python-Dateien im Plugin-Ordner. Ordner-Plugins sind beliebiger Code und laufen erst nach Freigabe. Änderungen wirken nach Neustart.</p>
+      <p>Plugin-Ordner: <code id="plugindir"></code></p>
+      <div class="tablewrap"><table id="docktable"></table></div>
+      <div style="margin-top:10px"><button class="btn primary" id="plugins-save">Freigaben speichern</button></div>
+    </div>
+  </section>
+
+  <!-- EINSTELLUNGEN -->
+  <section id="view-settings" class="hidden">
+    <div class="card" style="max-width:720px">
+      <h2>Einstellungen</h2>
+      <label>Workspace-Ordner (Bücher, Exporte)</label><input id="st-workspace">
+      <label>Modell</label>
+      <select id="st-model">
+        <option value="claude-opus-5-5">Claude Opus 5.5 (Standard)</option>
+        <option value="claude-fable-5-1">Claude Fable 5.1 (stärkstes, teuerstes)</option>
+        <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (günstiger)</option>
+        <option value="claude-haiku-5-5">Claude Haiku 5.5 (am günstigsten)</option>
+      </select>
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="st-web" style="width:auto"> Websuche für den Agenten erlauben</label>
+      <div style="margin-top:10px"><button class="btn primary" id="st-save">Speichern</button></div>
+      <h3>Anthropic API-Key</h3>
+      <p class="muted">Wird im Windows-Tresor (Anmeldeinformationsverwaltung) gespeichert, nie in einer Datei.</p>
+      <div class="row"><input id="st-key" type="password" placeholder="sk-ant-…"><button class="btn fit" id="st-key-save">Key speichern</button></div>
+    </div>
+  </section>
+</main>
+
+<div id="jobs"></div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- Basis
+const TOKEN = (() => {
+  const m = location.hash.match(/token=([^&]+)/);
+  if (m) { try { sessionStorage.setItem("scriptor-token", m[1]); } catch (e) {} history.replaceState(null, "", "/"); return m[1]; }
+  try { return sessionStorage.getItem("scriptor-token") || ""; } catch (e) { return ""; }
+})();
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    method: opts.method || "GET",
+    headers: {"Content-Type": "application/json", "X-Scriptor-Token": TOKEN},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : res.statusText);
+  return data;
+}
+function fail(e) { alert("Fehler: " + e.message); }
+function readFiles(input) {
+  return Promise.all([...input.files].map(f => f.text().then(content => ({filename: f.name, content}))));
+}
+
+// ---------------------------------------------------------------- Navigation
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  ["books", "agent", "plugins", "settings"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
+  if (b.dataset.view === "plugins") loadPlugins();
+  if (b.dataset.view === "settings") loadSettings();
+});
+
+// ---------------------------------------------------------------- Jobs
+const watched = new Map(); // id -> callback
+function watchJob(job, onDone) { watched.set(job.id, onDone); renderJobs(); }
+async function pollJobs() {
+  for (const [id, cb] of [...watched]) {
+    try {
+      const j = await api("/api/jobs/" + id);
+      watched.set(id, cb); jobCache[id] = j;
+      if (j.status === "done" || j.status === "error") { watched.delete(id); cb && cb(j); setTimeout(() => { delete jobCache[id]; renderJobs(); }, j.status === "error" ? 20000 : 5000); }
+    } catch (e) { watched.delete(id); }
+  }
+  renderJobs();
+}
+const jobCache = {};
+function renderJobs() {
+  $("#jobs").innerHTML = Object.values(jobCache).map(j => `
+    <div class="job"><b>${esc(j.kind)}</b> <span class="muted">${esc(j.resource)}</span>
+    — <span class="${j.status === "error" ? "err" : ""}">${esc(j.status)}</span>
+    ${j.error ? `<div class="err">${esc(j.error)}</div>` : ""}
+    ${j.log.length ? `<pre>${esc(j.log.slice(-6).join("\n"))}</pre>` : ""}</div>`).join("");
+}
+setInterval(pollJobs, 1500);
+
+// ---------------------------------------------------------------- Info
+let INFO = null, GENRES = [];
+async function loadInfo() {
+  INFO = await api("/api/info");
+  $("#model").textContent = INFO.model;
+  const k = $("#keystate");
+  k.textContent = INFO.api_key === "missing" ? "API-Key fehlt" : "API-Key: " + INFO.api_key;
+  k.className = "badge " + (INFO.api_key === "missing" ? "bad" : "ok");
+  GENRES = await api("/api/genres");
+  $("#nb-genre").innerHTML = GENRES.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("");
+}
+
+// ---------------------------------------------------------------- Bücher
+let current = null, bookTab = "overview", chapterNr = 1;
+
+async function loadBooks() {
+  const books = await api("/api/books");
+  $("#booklist").innerHTML = books.length ? books.map(b => `
+    <a data-slug="${esc(b.slug)}" class="${current === b.slug ? "active" : ""}">${esc(b.title)}<small>${esc(b.genre)}</small></a>`).join("")
+    : `<p class="muted">Noch keine Bücher.</p>`;
+  document.querySelectorAll("#booklist a").forEach(a => a.onclick = () => openBook(a.dataset.slug));
+}
+
+$("#nb-create").onclick = async () => {
+  try {
+    const r = await api("/api/books", {method: "POST", body: {
+      title: $("#nb-title").value, genre: $("#nb-genre").value, idea: $("#nb-idea").value, author: $("#nb-author").value}});
+    $("#nb-title").value = $("#nb-idea").value = "";
+    await loadBooks(); openBook(r.slug);
+  } catch (e) { fail(e); }
+};
+
+async function openBook(slug) { current = slug; await loadBooks(); renderBook(); }
+
+function action(name, params, confirmText) {
+  if (confirmText && !confirm(confirmText + "\n\nDas verursacht API-Kosten. Fortfahren?")) return;
+  api(`/api/books/${current}/actions/${name}`, {method: "POST", body: {params}})
+    .then(j => watchJob(j, () => renderBook())).catch(fail);
+}
+
+async function renderBook() {
+  if (!current) return;
+  const b = await api("/api/books/" + current);
+  const s = b.status;
+  const el = $("#book");
+  el.innerHTML = `
+    <h2>${esc(s.title)} <span class="badge">${esc(s.genre)}</span></h2>
+    <div class="tabs">${[["overview","Übersicht"],["bible","Bible"],["chapter","Kapitel"],["sources","Quellen & Stimme"],["material","Material & Export"],["register","Register"]]
+      .map(([k, l]) => `<button data-tab="${k}" class="${bookTab === k ? "active" : ""}">${l}</button>`).join("")}</div>
+    <div id="tab"></div>`;
+  el.querySelectorAll(".tabs button").forEach(t => t.onclick = () => { bookTab = t.dataset.tab; renderBook(); });
+  const tab = $("#tab");
+  if (bookTab === "overview") renderOverview(tab, b);
+  if (bookTab === "bible") renderBible(tab, b);
+  if (bookTab === "chapter") renderChapter(tab, b);
+  if (bookTab === "sources") renderSources(tab, b);
+  if (bookTab === "material") renderMaterial(tab, b);
+  if (bookTab === "register") renderRegister(tab, b);
+}
+
+function renderOverview(tab, b) {
+  const s = b.status, t = s.words_target;
+  const pct = Math.min(100, Math.round(100 * s.words_total / Math.max(1, t.min)));
+  tab.innerHTML = `
+    <div class="kv">
+      <span class="muted">Wörter</span><span>${s.words_total.toLocaleString("de")} / ${t.min.toLocaleString("de")}–${t.max.toLocaleString("de")} (${pct} %)</span>
+      <span class="muted">Bible</span><span>${s.has_bible ? "✓" : "—"}</span>
+      <span class="muted">Outline</span><span>${s.has_outline ? "✓ " + s.chapters.length + " Einheiten" : "—"}</span>
+      <span class="muted">Audit-Kette</span><span class="${s.audit_chain_ok ? "pass" : "err"}">${s.audit_chain_ok ? "OK" : "GEBROCHEN"}</span>
+    </div>
+    <h3>Pipeline</h3>
+    <div class="row">
+      <div><label>Notizen für die Bible</label><input id="bible-notes" placeholder="z. B. Band 1 einer Trilogie, Ton: düster-humorvoll"></div>
+      <button class="btn fit" id="do-bible">1 · Bible entwickeln</button>
+    </div>
+    <div class="row">
+      <div><label>Anzahl Einheiten (leer = Standard)</label><input id="ol-n" type="number" min="1"></div>
+      <button class="btn fit" id="do-outline" ${s.has_bible ? "" : "disabled"}>2 · Outline erstellen</button>
+    </div>
+    <div class="row">
+      <div><label>Von</label><input id="wb-start" type="number" value="1" min="1"></div>
+      <div><label>Bis</label><input id="wb-end" type="number" value="${Math.min(3, s.chapters.length) || ""}" min="1"></div>
+      <button class="btn primary fit" id="do-write" ${s.has_outline ? "" : "disabled"}>3 · Schreiben (Entwurf → Lektorat → Revision)</button>
+    </div>
+    ${b.bible.open_questions && b.bible.open_questions.length ? `<h3>Offene Fragen an dich</h3><ul>${b.bible.open_questions.map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
+    <h3>Kapitel</h3>
+    <div class="tablewrap"><table><tr><th>#</th><th>Titel</th><th>Version</th><th>Wörter</th><th>Gate</th><th></th></tr>
+    ${s.chapters.map(c => `<tr>
+      <td>${c.nr}</td><td>${esc(c.title)}</td><td>${c.version ? "v" + c.version : "—"}</td>
+      <td>${c.words}/${c.target ?? "?"}</td>
+      <td class="${c.verdict === "PASS" ? "pass" : c.verdict ? "revise" : ""}">${esc(c.verdict || "—")} ${c.score ?? ""}</td>
+      <td style="white-space:nowrap">
+        <button class="btn small" data-a="draft" data-nr="${c.nr}">Entwurf</button>
+        <button class="btn small" data-a="review" data-nr="${c.nr}" ${c.version ? "" : "disabled"}>Lektorat</button>
+        <button class="btn small" data-a="revise" data-nr="${c.nr}" ${c.version ? "" : "disabled"}>Überarbeiten</button>
+        <button class="btn small" data-open="${c.nr}">Öffnen</button>
+      </td></tr>`).join("")}
+    </table></div>`;
+  $("#do-bible").onclick = () => action("bible", {notes: $("#bible-notes").value}, "Bible entwickeln");
+  $("#do-outline").onclick = () => action("outline", {chapters: +$("#ol-n").value || null}, "Outline erstellen");
+  $("#do-write").onclick = () => action("write_book", {start: +$("#wb-start").value || 1, end: +$("#wb-end").value || null},
+    `Kapitel ${$("#wb-start").value}–${$("#wb-end").value || "Ende"} schreiben`);
+  tab.querySelectorAll("[data-a]").forEach(btn => btn.onclick = () =>
+    action(btn.dataset.a, {nr: +btn.dataset.nr}, btn.dataset.a === "review" ? null : `Kapitel ${btn.dataset.nr}: ${btn.textContent}`));
+  tab.querySelectorAll("[data-open]").forEach(btn => btn.onclick = () => { chapterNr = +btn.dataset.open; bookTab = "chapter"; renderBook(); });
+}
+
+function renderBible(tab, b) {
+  tab.innerHTML = `
+    <p class="muted">SSOT: Änderungen werden als Commit mit Begründung im Register festgehalten. <code>meta</code> ist schreibgeschützt.</p>
+    <textarea class="code" id="bible-yaml">${esc(b.bible_yaml)}</textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Begründung (Pflicht)</label><input id="bible-reason"></div>
+      <div class="fit"><label>Art</label><select id="bible-kind"><option>PATCH</option><option>SUPERSEDE</option></select></div>
+      <button class="btn primary fit" id="bible-save">Commit</button>
+    </div>`;
+  $("#bible-save").onclick = () => api(`/api/books/${current}/bible`, {method: "PATCH", body: {
+      yaml: $("#bible-yaml").value, reason: $("#bible-reason").value, kind: $("#bible-kind").value}})
+    .then(r => { alert("Committed: " + r.register_id); renderBook(); }).catch(fail);
+}
+
+async function renderChapter(tab, b) {
+  if (!b.outline.length) { tab.innerHTML = `<p class="muted">Erst eine Outline erstellen.</p>`; return; }
+  const sel = `<select id="ch-nr">${b.outline.map(c => `<option value="${c.nr}" ${c.nr === chapterNr ? "selected" : ""}>${c.nr}. ${esc(c.title)}</option>`).join("")}</select>`;
+  const ch = await api(`/api/books/${current}/chapters/${chapterNr}` + (tab.dataset.version ? "?version=" + tab.dataset.version : ""));
+  delete tab.dataset.version;
+  const r = ch.review;
+  tab.innerHTML = `
+    <div class="row"><div>${sel}</div>
+      <div class="fit"><select id="ch-ver">${ch.versions.map(v => `<option ${v === ch.version ? "selected" : ""}>${v}</option>`).join("") || "<option>—</option>"}</select></div></div>
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <textarea class="editor" id="ch-text" placeholder="Noch kein Text. Entwurf erzeugen oder selbst schreiben.">${esc(ch.text)}</textarea>
+        <div class="row" style="margin-top:8px">
+          <span class="muted fit" id="ch-count"></span><div></div>
+          <button class="btn fit" id="ch-draft">Neuer Entwurf</button>
+          <button class="btn fit" id="ch-review" ${ch.versions.length ? "" : "disabled"}>Lektorat</button>
+          <button class="btn primary fit" id="ch-save">Als neue Version speichern</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div><input id="ch-instr" placeholder="Anweisung für die Überarbeitung, z. B. mehr Dialog, Tempo im Mittelteil"></div>
+          <button class="btn fit" id="ch-revise" ${ch.versions.length ? "" : "disabled"}>Überarbeiten</button>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h2>Plan</h2>
+          <div class="kv"><span class="muted">Beat</span><span>${esc(ch.plan.beat)}</span>
+          <span class="muted">Ziel</span><span>${esc(ch.plan.goal)}</span>
+          <span class="muted">Konflikt</span><span>${esc(ch.plan.conflict)}</span>
+          <span class="muted">Ausgang</span><span>${esc(ch.plan.outcome)}</span>
+          <span class="muted">Wortziel</span><span>${esc(ch.plan.words_target)}</span></div>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <h2>Lektorat ${r ? `<span class="${r.verdict === "PASS" ? "pass" : "revise"}">${esc(r.verdict)} · ${esc(r.score)}</span>` : ""}</h2>
+          ${r ? `<p>${esc(r.summary)}</p>
+            ${(r.reasons || []).map(x => `<div class="revise">• ${esc(x)}</div>`).join("")}
+            ${(r.issues || []).map(i => `<div class="issue ${esc(i.severity)}"><b>${esc(i.severity)}</b> · ${esc(i.category)}<br>${esc(i.problem)}<br><span class="muted">„${esc(i.quote)}“</span><br>→ ${esc(i.fix)}</div>`).join("")}
+            ${(r.strengths || []).length ? `<h3>Stärken</h3>${r.strengths.map(x => `<div>+ ${esc(x)}</div>`).join("")}` : ""}`
+          : `<p class="muted">Für diese Version gibt es noch kein Lektorat.</p>`}
+        </div>
+      </div>
+    </div>`;
+  const count = () => $("#ch-count").textContent = ($("#ch-text").value.trim().split(/\s+/).filter(Boolean).length) + " Wörter";
+  count(); $("#ch-text").oninput = count;
+  $("#ch-nr").onchange = e => { chapterNr = +e.target.value; renderBook(); };
+  $("#ch-ver").onchange = e => { tab.dataset.version = e.target.value; renderChapter(tab, b); };
+  $("#ch-draft").onclick = () => action("draft", {nr: chapterNr}, `Kapitel ${chapterNr} neu entwerfen`);
+  $("#ch-review").onclick = () => action("review", {nr: chapterNr});
+  $("#ch-revise").onclick = () => action("revise", {nr: chapterNr, instructions: $("#ch-instr").value}, `Kapitel ${chapterNr} überarbeiten`);
+  $("#ch-save").onclick = () => api(`/api/books/${current}/chapters/${chapterNr}`, {method: "PUT", body: {text: $("#ch-text").value}})
+    .then(r => { alert("Gespeichert als v" + r.version); renderBook(); }).catch(fail);
+}
+
+function renderSources(tab, b) {
+  const v = b.voice && b.voice.metrics;
+  tab.innerHTML = `
+    <h3>Quellen / Interviewnotizen (.txt, .md)</h3>
+    <p class="muted">Bei Memoir, Sachbuch, Ratgeber und Business die einzige Faktenbasis.</p>
+    <ul>${b.sources.map(s => `<li>${esc(s)}</li>`).join("") || "<li class='muted'>keine</li>"}</ul>
+    <div class="row"><input type="file" id="src-files" multiple accept=".txt,.md"><button class="btn fit" id="src-up">Hochladen</button></div>
+    <h3>Deine Stimme</h3>
+    <p class="muted">Eigene Texte (mind. 300, besser 2.000+ Wörter) als .txt/.md. Daraus entstehen Zielwerte, die das Lektorat prüft.</p>
+    ${v ? `<div class="kv"><span class="muted">Ø Satzlänge</span><span>${v.avg_sentence_len} Wörter</span>
+      <span class="muted">Dialoganteil</span><span>${Math.round(v.dialog_ratio * 100)} %</span>
+      <span class="muted">Sätze/Absatz</span><span>${v.avg_paragraph_sentences}</span>
+      <span class="muted">Stilnotizen</span><span style="white-space:pre-wrap">${esc(b.voice.style_notes || "—")}</span></div>` : ""}
+    <div class="row" style="margin-top:8px"><input type="file" id="voice-files" multiple accept=".txt,.md">
+      <label class="fit" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="voice-describe" checked style="width:auto"> Stilbeschreibung per Claude</label>
+      <button class="btn fit" id="voice-up">Stimme lernen</button></div>`;
+  $("#src-up").onclick = async () => {
+    try { for (const f of await readFiles($("#src-files"))) await api(`/api/books/${current}/sources`, {method: "POST", body: f}); renderBook(); }
+    catch (e) { fail(e); }
+  };
+  $("#voice-up").onclick = async () => {
+    try {
+      const samples = await readFiles($("#voice-files"));
+      const j = await api(`/api/books/${current}/voice`, {method: "POST", body: {samples, describe: $("#voice-describe").checked}});
+      watchJob(j, () => renderBook());
+    } catch (e) { fail(e); }
+  };
+}
+
+function renderMaterial(tab, b) {
+  tab.innerHTML = `
+    <h3>Begleitmaterial</h3>
+    <div class="row"><select id="mat-kind">${INFO.materials.map(m => `<option>${esc(m)}</option>`).join("")}</select>
+      <button class="btn fit" id="mat-go">Erzeugen</button></div>
+    <h3>Export</h3>
+    <div class="row"><button class="btn fit" id="exp-md">Manuskript (Markdown)</button>
+      ${INFO.docks.some(d => d.name === "docx_export" && d.loaded) ? `<button class="btn fit" id="exp-docx">Word (.docx)</button>` : `<span class="muted fit">Word-Export: python-docx installieren</span>`}</div>
+    <h3>Dateien</h3>
+    <ul>${b.exports.map(f => `<li><a href="/api/books/${encodeURIComponent(current)}/export/${encodeURIComponent(f)}?token=${encodeURIComponent(TOKEN)}" download>${esc(f)}</a></li>`).join("") || "<li class='muted'>noch keine</li>"}</ul>`;
+  $("#mat-go").onclick = () => action("material", {kind: $("#mat-kind").value}, "Material erzeugen");
+  $("#exp-md").onclick = () => action("export", {});
+  if ($("#exp-docx")) $("#exp-docx").onclick = () => action("export_docx", {});
+}
+
+function renderRegister(tab, b) {
+  tab.innerHTML = `<table><tr><th>ID</th><th>Zeit</th><th>Art</th><th>Ziel</th><th>Grund</th></tr>
+    ${b.register.slice().reverse().map(r => `<tr><td>${esc(r.id)}</td><td>${esc(r.ts.slice(0, 19).replace("T", " "))}</td><td>${esc(r.kind)}</td><td>${esc(r.target)}</td><td>${esc(r.reason)}</td></tr>`).join("")}</table>`;
+}
+
+// ---------------------------------------------------------------- Agent
+let session = null;
+async function newSession() { session = (await api("/api/agent/sessions", {method: "POST"})).id; renderChat([]); }
+function renderChat(t) {
+  $("#chat").innerHTML = t.map(m => `<div class="msg ${esc(m.kind)}">${esc(m.kind === "tool" ? "→ " + m.text : m.text)}</div>`).join("")
+    || `<p class="muted">Neue Sitzung.</p>`;
+  $("#chat").scrollTop = 1e9;
+}
+async function refreshChat() { if (session) renderChat((await api("/api/agent/sessions/" + session)).transcript); }
+$("#agent-new").onclick = () => newSession().catch(fail);
+$("#agent-send").onclick = async () => {
+  const text = $("#agent-input").value.trim(); if (!text) return;
+  try {
+    if (!session) await newSession();
+    const j = await api(`/api/agent/sessions/${session}/messages`, {method: "POST", body: {text, allow_expensive: $("#agent-allow").checked}});
+    $("#agent-input").value = "";
+    const timer = setInterval(refreshChat, 1500);
+    watchJob(j, () => { clearInterval(timer); refreshChat(); loadBooks(); });
+    refreshChat();
+  } catch (e) { fail(e); }
+};
+
+// ---------------------------------------------------------------- Plugins
+let SETTINGS = null;
+async function loadPlugins() {
+  await loadInfo(); SETTINGS = await api("/api/settings");
+  $("#plugindir").textContent = INFO.plugin_dir;
+  $("#docktable").innerHTML = `<tr><th>Freigabe</th><th>Name</th><th>Version</th><th>Quelle</th><th>Status</th><th>Beiträge</th></tr>` +
+    INFO.docks.map(d => {
+      const folder = d.source === "folder";
+      const on = folder ? SETTINGS.enabled_plugins.includes(d.name) : !SETTINGS.disabled_docks.includes(d.name);
+      return `<tr><td><input type="checkbox" data-dock="${esc(d.name)}" data-folder="${folder}" ${on ? "checked" : ""} style="width:auto"></td>
+        <td>${esc(d.name)}<br><small class="muted">${esc(d.description)}</small></td><td>${esc(d.version)}</td><td>${esc(d.source)}</td>
+        <td class="${d.loaded ? "pass" : "muted"}">${d.loaded ? "aktiv" : esc(d.error || "inaktiv")}</td><td>${esc((d.contributes || []).join(", "))}</td></tr>`;
+    }).join("");
+}
+$("#plugins-save").onclick = async () => {
+  const boxes = [...document.querySelectorAll("[data-dock]")];
+  const enabled_plugins = boxes.filter(b => b.dataset.folder === "true" && b.checked).map(b => b.dataset.dock);
+  const disabled_docks = boxes.filter(b => b.dataset.folder !== "true" && !b.checked).map(b => b.dataset.dock);
+  if (enabled_plugins.some(p => !SETTINGS.enabled_plugins.includes(p)) &&
+      !confirm("Ordner-Plugins führen beliebigen Python-Code mit deinen Rechten aus. Nur eigene/geprüfte Plugins freigeben. Fortfahren?")) return;
+  try { await api("/api/settings", {method: "PUT", body: {enabled_plugins, disabled_docks}}); alert("Gespeichert. SCRIPTOR neu starten, damit Plugins geladen werden."); }
+  catch (e) { fail(e); }
+};
+
+// ---------------------------------------------------------------- Einstellungen
+async function loadSettings() {
+  const s = await api("/api/settings");
+  $("#st-workspace").value = s.workspace || s.workspace_resolved;
+  $("#st-model").value = s.model; $("#st-web").checked = s.web_search;
+}
+$("#st-save").onclick = () => api("/api/settings", {method: "PUT", body: {
+    workspace: $("#st-workspace").value, model: $("#st-model").value, web_search: $("#st-web").checked}})
+  .then(() => { alert("Gespeichert. Workspace-Änderungen wirken nach Neustart."); loadInfo(); }).catch(fail);
+$("#st-key-save").onclick = () => api("/api/settings/api-key", {method: "PUT", body: {key: $("#st-key").value}})
+  .then(() => { $("#st-key").value = ""; loadInfo(); alert("API-Key gespeichert."); }).catch(fail);
+
+// ---------------------------------------------------------------- Start
+if (!TOKEN) document.body.innerHTML = "<main><div class='card'>Kein Zugriffstoken. Bitte SCRIPTOR über die Verknüpfung starten.</div></main>";
+else loadInfo().then(loadBooks).catch(fail);
+</script>
+</body>
+</html>

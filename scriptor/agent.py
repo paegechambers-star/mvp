@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from scriptor.docks import DockRegistry
 from scriptor.genres import all_genres
 from scriptor.ghostwriter import Ghostwriter, load_config
 from scriptor.llm import LLM, AgentTurn
@@ -128,6 +129,7 @@ class Agent:
         web_search: bool = False,
         config: Optional[Dict[str, Any]] = None,
         on_event: Optional[Callable[[str, str], None]] = None,
+        docks: Optional[DockRegistry] = None,
     ) -> None:
         self.llm = llm
         self.workspace = workspace.resolve()
@@ -137,7 +139,16 @@ class Agent:
         self.approve = approve or (lambda name, args: True)
         self.on_event = on_event or (lambda kind, text: None)
         self.messages: List[Dict[str, Any]] = []
-        self.tools = list(TOOLS)
+        self.docks = docks or DockRegistry()
+        self.materials: Dict[str, str] = {**self.cfg["materials"], **self.docks.materials}
+        self.confirm_tools = set(self.cfg["agent"]["confirm_tools"]) | {
+            n for n, t in self.docks.tools.items() if t.confirm
+        }
+        builtin = {t["name"] for t in TOOLS}
+        clash = builtin & set(self.docks.tools)
+        if clash:
+            raise ValueError(f"Dock-Werkzeuge überschreiben eingebaute Werkzeuge: {sorted(clash)}")
+        self.tools = list(TOOLS) + [t.schema for t in self.docks.tools.values()]
         if web_search:
             self.tools.append({
                 "type": "web_search_20260209",
@@ -159,8 +170,8 @@ class Agent:
                 SYSTEM_PROMPT, self.messages, self.tools, effort=self.cfg["effort"]["agent"]
             )
             self.messages.append({"role": "assistant", "content": turn.content})
-            if turn.text:
-                self.on_event("text", turn.text)
+            if turn.text and turn.stop_reason in ("tool_use", "pause_turn"):
+                self.on_event("text", turn.text)  # Zwischenstand; die Schlussantwort ist der Rückgabewert
             if turn.stop_reason == "pause_turn":
                 continue  # serverseitiges Werkzeug (Websuche) läuft weiter
             if turn.stop_reason != "tool_use":
@@ -179,15 +190,22 @@ class Agent:
         return (turn.text if turn else "") + f"\n[Abbruch: max. {max_steps} Schritte erreicht]"
 
     def _execute(self, name: str, args: Dict[str, Any]) -> tuple[str, bool]:
-        handler = getattr(self, f"_t_{name}", None)
+        dock_tool = self.docks.tools.get(name)
+        handler: Optional[Callable[..., Any]] = getattr(self, f"_t_{name}", None)
+        if dock_tool is not None:
+            handler = lambda **kw: dock_tool.handler(self, **kw)  # noqa: E731
         if handler is None:
             return f"Unbekanntes Werkzeug: {name}", True
-        if name in self.cfg["agent"]["confirm_tools"] and not self.approve(name, args):
+        if name in self.confirm_tools and not self.approve(name, args):
             return "Vom Nutzer abgelehnt. Nicht erneut versuchen; nachfragen, was stattdessen.", True
         try:
             return str(handler(**args)), False
         except (ProjectError, WorkspaceError, ValueError, KeyError, TypeError, OSError) as exc:
             return f"{type(exc).__name__}: {exc}", True
+        except Exception as exc:  # noqa: BLE001 - Plugin-Fehler dürfen den Agenten nicht beenden
+            if dock_tool is None:
+                raise
+            return f"Plugin '{dock_tool.dock}' fehlgeschlagen: {type(exc).__name__}: {exc}", True
 
     # ------------------------------------------------------------------
     # Pfade
@@ -273,7 +291,7 @@ class Agent:
         return f"SSOT-Commit {self._book(slug).commit_ssot('bible', data, reason, kind)}"
 
     def _t_book_material(self, slug: str, kind: str) -> str:
-        materials = self.cfg["materials"]
+        materials = self.materials
         if kind not in materials:
             raise ValueError(f"Unbekannte Materialart. Erlaubt: {sorted(materials)}")
         p = self._book(slug)

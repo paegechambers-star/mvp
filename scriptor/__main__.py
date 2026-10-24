@@ -1,3 +1,3 @@
-from scriptor.cli import app
+from scriptor.cli import main
 
-app()
+main()

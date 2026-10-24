@@ -91,13 +91,14 @@ class AnthropicLLM:
         audit: AuditLog,
         model: str = DEFAULT_MODEL,
         client: Any = None,
+        api_key: Optional[str] = None,
     ) -> None:
         if client is None:
             try:
                 import anthropic
             except ImportError as exc:  # pragma: no cover - Installationsfehler
                 raise ImportError("Paket 'anthropic' fehlt: pip install anthropic") from exc
-            client = anthropic.Anthropic()
+            client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
         self._client = client
         self._model = model
         self._audit = audit

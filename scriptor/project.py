@@ -215,10 +215,16 @@ class BookProject:
         return text
 
     def add_source(self, path: Path) -> str:
-        dest = self.root / "ssot" / "sources" / path.name
-        content = path.read_text(encoding="utf-8")
+        return self.add_source_text(path.name, path.read_text(encoding="utf-8"))
+
+    def add_source_text(self, filename: str, content: str) -> str:
+        name = Path(filename).name
+        if not name or name.startswith("."):
+            raise ProjectError(f"Ungültiger Dateiname: {filename!r}")
+        dest = self.root / "ssot" / "sources" / name
+        kind = "SUPERSEDE" if dest.exists() else "CREATE"
         dest.write_text(content, encoding="utf-8")
-        return self._register("CREATE", f"ssot/sources/{path.name}", "Quelle hinzugefügt", content)
+        return self._register(kind, f"ssot/sources/{name}", "Quelle hinzugefügt", content)
 
     # ------------------------------------------------------------------
     # WORK

@@ -21,33 +21,43 @@ import typer
 from scriptor.audit import AuditLog
 from scriptor.genres import all_genres
 from scriptor.ghostwriter import Ghostwriter, load_config
-from scriptor.llm import DEFAULT_MODEL, AnthropicLLM, LLMError
-from scriptor.project import BookProject, ProjectError, default_workspace
+from scriptor.llm import LLM, LLMError
+from scriptor.project import BookProject, ProjectError
+from scriptor.runtime import Runtime
+from scriptor.settings import Settings, api_key_status, set_api_key
 
 app = typer.Typer(help="SCRIPTOR — KI-Ghostwriter & Arbeitsagent", no_args_is_help=True)
 
-_state: Dict[str, Any] = {"workspace": None, "model": DEFAULT_MODEL}
+_state: Dict[str, Any] = {"runtime": None}
 
 
 @app.callback()
 def _main(
     workspace: Optional[Path] = typer.Option(
-        None, "--workspace", "-w", help="Workspace-Ordner (Default: $SCRIPTOR_HOME oder ./scriptor-workspace)"
+        None, "--workspace", "-w", help="Workspace-Ordner (Default: Einstellungen bzw. Dokumente/Scriptor)"
     ),
-    model: str = typer.Option(DEFAULT_MODEL, "--model", help="Claude-Modell-ID"),
+    model: Optional[str] = typer.Option(None, "--model", help="Claude-Modell-ID"),
 ) -> None:
-    _state["workspace"] = (workspace or default_workspace()).resolve()
-    _state["model"] = model
+    rt = _rt()
+    if workspace is not None:
+        rt.settings.workspace = str(workspace.resolve())
+    if model:
+        rt.settings.model = model
+
+
+def _rt() -> Runtime:
+    if _state["runtime"] is None:
+        _state["runtime"] = Runtime.create()
+    rt: Runtime = _state["runtime"]
+    return rt
 
 
 def _ws() -> Path:
-    ws: Path = _state["workspace"]
-    ws.mkdir(parents=True, exist_ok=True)
-    return ws
+    return _rt().workspace
 
 
-def _llm() -> AnthropicLLM:
-    return AnthropicLLM(AuditLog(_ws() / "audit.jsonl"), model=_state["model"])
+def _llm() -> LLM:
+    return _rt().llm()
 
 
 def _book(slug: str) -> BookProject:
@@ -199,7 +209,7 @@ def write_book(
     last = end or len(p.outline)
     if not yes:
         typer.confirm(
-            f"Kapitel {start}–{last} schreiben ({_state['model']}). Das verursacht API-Kosten. Starten?",
+            f"Kapitel {start}–{last} schreiben ({_rt().settings.model}). Das verursacht API-Kosten. Starten?",
             abort=True,
         )
 
@@ -217,7 +227,7 @@ def material(slug: str, kind: str) -> None:
     """Begleitmaterial: expose, synopsis, klappentext, query_letter, social_media, …"""
     from scriptor.agent import Agent
 
-    agent = Agent(_llm(), _ws())
+    agent = Agent(_llm(), _ws(), docks=_rt().docks)
     typer.echo(_run(agent._t_book_material, slug, kind))
 
 
@@ -252,7 +262,10 @@ def _make_agent(web: bool, yes: bool) -> Any:
         if kind == "tool":
             typer.secho(f"  → {text}", fg="cyan")
 
-    return Agent(_llm(), _ws(), approve=approve, web_search=web, config=load_config(), on_event=on_event)
+    return Agent(
+        _llm(), _ws(), approve=approve, web_search=web or _rt().settings.web_search,
+        config=load_config(), on_event=on_event, docks=_rt().docks,
+    )
 
 
 @app.command()
@@ -279,5 +292,69 @@ def chat(
         typer.echo(_run(a.run, task))
 
 
-if __name__ == "__main__":
+# ---------------------------------------------------------------------------
+# App, Docks, Einstellungen
+# ---------------------------------------------------------------------------
+
+
+@app.command("app")
+def run_app(
+    port: int = typer.Option(0, help="Port (0 = frei wählen)"),
+    browser: bool = typer.Option(False, "--browser", help="Im Browser statt eigenem Fenster öffnen"),
+) -> None:
+    """Desktop-App starten (eigenes Fenster bzw. Browser)."""
+    from scriptor.app.launcher import launch
+
+    launch(_rt(), port=port, prefer_window=not browser)
+
+
+@app.command()
+def docks() -> None:
+    """Geladene Docks (Plugins) und ihre Beiträge."""
+    rt = _rt()
+    for i in rt.docks.infos:
+        state = "aktiv" if i.loaded else f"aus ({i.error or 'load() = False'})"
+        typer.echo(f"{i.name:<16} {i.version:<8} {i.source:<10} {state}")
+        if i.contributes:
+            typer.echo(f"{'':<16} → {', '.join(i.contributes)}")
+    typer.echo(f"\nPlugin-Ordner: {rt.settings.plugin_dir()}")
+
+
+@app.command("config")
+def config_cmd(
+    workspace: Optional[Path] = typer.Option(None, "--set-workspace"),
+    model: Optional[str] = typer.Option(None, "--set-model"),
+    api_key: Optional[str] = typer.Option(None, "--set-api-key", help="Im OS-Tresor speichern"),
+    enable_plugin: Optional[str] = typer.Option(None, "--enable-plugin"),
+    disable_plugin: Optional[str] = typer.Option(None, "--disable-plugin"),
+) -> None:
+    """Einstellungen anzeigen / ändern."""
+    s = Settings.load()
+    if workspace:
+        s.workspace = str(workspace.resolve())
+    if model:
+        s.model = model
+    if enable_plugin and enable_plugin not in s.enabled_plugins:
+        s.enabled_plugins.append(enable_plugin)
+    if disable_plugin and disable_plugin in s.enabled_plugins:
+        s.enabled_plugins.remove(disable_plugin)
+    if api_key is not None and not set_api_key(api_key):
+        typer.secho("Kein OS-Tresor verfügbar (pip install keyring) — nutze ANTHROPIC_API_KEY.", fg="yellow")
+    s.save()
+    typer.echo(f"Einstellungen: {Settings.path()}")
+    typer.echo(f"Workspace:     {s.workspace_path()}")
+    typer.echo(f"Modell:        {s.model}")
+    typer.echo(f"API-Key:       {api_key_status()}")
+    typer.echo(f"Plugins frei:  {', '.join(s.enabled_plugins) or '—'}")
+
+
+def main() -> None:
+    """Einstiegspunkt: Dock-CLI-Befehle einhängen, dann Typer starten."""
+    rt = _rt()
+    for name, sub in rt.docks.cli.items():
+        app.add_typer(sub, name=name)
     app()
+
+
+if __name__ == "__main__":
+    main()

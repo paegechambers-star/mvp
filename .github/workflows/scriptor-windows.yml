@@ -1,0 +1,47 @@
+name: SCRIPTOR Windows
+
+on:
+  push:
+    paths:
+      - "scriptor/**"
+      - "packaging/windows/**"
+      - "tests/scriptor_tests/**"
+      - "examples/scriptor_plugins/**"
+      - ".github/workflows/scriptor-windows.yml"
+  pull_request:
+    paths:
+      - "scriptor/**"
+      - "packaging/windows/**"
+      - "tests/scriptor_tests/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[windows]" pytest pytest-asyncio httpx
+      - name: Tests (Windows)
+        env:
+          PYTHONUTF8: "1"
+        run: python -m pytest tests/scriptor_tests -q -p no:cacheprovider
+      - name: Build Scriptor.exe
+        shell: pwsh
+        env:
+          SCRIPTOR_PYTHON: python
+        run: ./packaging/windows/build.ps1
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scriptor-windows
+          path: dist/Scriptor-windows.zip
+          retention-days: 30

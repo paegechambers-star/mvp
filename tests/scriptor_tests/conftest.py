@@ -71,3 +71,16 @@ def make_llm(n_chapters: int = 3, reviews=None) -> FakeLLM:
         "document": lambda s, p: "Klappentext.",
         "voice": lambda s, p: "- kurze Sätze",
     })
+
+
+@pytest.fixture(autouse=True)
+def _isolated_env(tmp_path, monkeypatch):
+    """Keine echten Einstellungen/Keys/Plugin-Genres zwischen Tests teilen."""
+    from scriptor import genres
+
+    monkeypatch.setenv("SCRIPTOR_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.delenv("SCRIPTOR_HOME", raising=False)
+    monkeypatch.delenv("SCRIPTOR_MODEL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    yield
+    genres.set_extra_dirs([])

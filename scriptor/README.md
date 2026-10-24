@@ -4,12 +4,56 @@ Schreibt Bücher aller Arten im Namen der Autorin/des Autors — von der Idee bi
 exportierten Manuskript inkl. Exposé, Klappentext und Agentur-Anschreiben. Läuft über
 die Claude-API (Default: `claude-opus-5-5`).
 
-## Setup
+## Windows-App
+
+**Variante A: Installer-Skript** (empfohlen, ohne Adminrechte, Python 3.10+ nötig)
+
+```powershell
+git clone https://github.com/paegechambers-star/mvp.git
+cd mvp
+PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\install.ps1
+```
+
+Das Skript legt `%LOCALAPPDATA%\Scriptor\venv` und eine Verknüpfung **SCRIPTOR** auf dem
+Desktop und im Startmenü an. Die App öffnet sich in einem eigenen Fenster (Edge WebView2,
+ab Windows 10/11 vorinstalliert).
+
+**Variante B: fertige EXE** (ohne Python)
+GitHub → Actions → „SCRIPTOR Windows“ → letzter grüner Lauf → Artefakt `Scriptor-windows`.
+ZIP entpacken und `Scriptor\Scriptor.exe` starten. Selbst bauen:
+`.\packaging\windows\build.ps1` (erzeugt `dist\Scriptor-windows.zip`).
+
+**Erster Start:** Einstellungen → API-Key eintragen. Er wird in der Windows-Anmeldeinformations­verwaltung
+gespeichert, nie in einer Datei.
+
+| Was | Wo (Windows) |
+|---|---|
+| Bücher, Exporte | `Dokumente\Scriptor` (änderbar in den Einstellungen) |
+| Einstellungen | `%APPDATA%\Scriptor\settings.json` |
+| Plugins | `%APPDATA%\Scriptor\plugins` |
+
+### App-Funktionen
+
+- **Bücher:** anlegen, Bible → Outline → Schreiben per Klick. Lange Läufe arbeiten im Hintergrund,
+  der Fortschritt steht unten rechts. Pro Buch läuft höchstens ein Job gleichzeitig.
+- **Kapitel-Editor:** Versionen durchblättern, selbst schreiben und als neue Version speichern,
+  Lektorat mit Befunden und Zitaten, Überarbeitung mit eigener Anweisung.
+- **Bible-Editor:** YAML bearbeiten, Commit nur mit Begründung (PATCH/SUPERSEDE, Register).
+- **Quellen & Stimme:** Interviewnotizen hochladen, eigene Texte für das Voice-Profil.
+- **Material & Export:** Exposé, Klappentext, Anschreiben … sowie Markdown- und Word-Export (.docx).
+- **Agent:** Chat mit Werkzeugen. Teure Schritte laufen nur mit Haken „teure Werkzeuge erlauben“.
+- **Plugins:** alle Docks mit Status und Beiträgen, Freigabe von Ordner-Plugins.
+- **Register:** alle SSOT-Commits und Outputs mit ID.
+
+Sicherheit: Der Server lauscht nur auf `127.0.0.1`. Jede API-Anfrage braucht einen pro Start
+erzeugten Token. Fremde Host-Header werden abgewiesen (Schutz vor DNS-Rebinding).
+
+## CLI-Setup (alle Systeme)
 
 ```bash
-pip install -e .                 # installiert auch das anthropic-SDK
-export ANTHROPIC_API_KEY=sk-ant-…  # oder: ant auth login
-export SCRIPTOR_HOME=~/scriptor-workspace   # optional, sonst ./scriptor-workspace
+pip install -e ".[app]"           # SDK + Fenster + Tresor + Word-Export
+scriptor config --set-api-key sk-ant-…   # oder ANTHROPIC_API_KEY setzen
+scriptor app                      # Desktop-App
 ```
 
 ## Workflow (Buch)
@@ -40,6 +84,19 @@ scriptor chat
 Teure Werkzeuge (Bible, Outline, Entwurf, Revision, Komplettlauf) fragen vorher nach;
 `--yes` schaltet das ab.
 
+## Plugins (Docks)
+
+Erweiterbar wie FraPP über Docks: Agent-Werkzeuge, Bucharten, Materialarten, API-Routen,
+CLI-Befehle. Eingebaut: `lesbarkeit` (Flesch-Amstad, Wiener Sachtextformel) und `docx_export`.
+Ordner-Plugins laufen nur nach Freigabe. Anleitung: [`docs/scriptor-plugins.md`](../docs/scriptor-plugins.md),
+Beispiel: `examples/scriptor_plugins/kurzgeschichte.py`.
+
+```bash
+scriptor docks                         # geladene Docks + Beiträge
+scriptor config --enable-plugin kurzgeschichte
+scriptor lesbarkeit buch <slug>        # CLI-Befehl aus einem Dock
+```
+
 ## Architektur
 
 | Baustein | Datei | Regel |
@@ -51,13 +108,19 @@ Teure Werkzeuge (Bible, Outline, Entwurf, Revision, Komplettlauf) fragen vorher 
 | Voice | `voice.py` | Deterministische Stilometrie → Zielwerte im Prompt + Abweichungsmessung im Gate |
 | Agent | `agent.py` | Tool-Loop; Dateizugriff nur im Workspace; SSOT nicht per `write_file` änderbar |
 | Audit | `audit.py` | SHA256-Kette, Prompts nur als Hash (Manuskripte bleiben vertraulich) |
+| Docks | `docks/` | Plugin-Registry; Fehler isoliert und zurückgerollt; Ordner-Plugins nur mit Freigabe |
+| Laufzeit | `runtime.py`, `settings.py` | Einstellungen (Plattform-Pfade), API-Key im OS-Tresor, LLM-Fabrik |
+| App | `app/` | FastAPI-Server (Token, nur localhost), Hintergrund-Jobs, Oberfläche, Launcher |
+| Windows | `packaging/windows/` | `install.ps1`, `build.ps1` (PyInstaller), `Scriptor.bat` |
 
 Ablage je Buch: `books/<slug>/{ssot,work,export}/`, `register.jsonl`, `audit.jsonl`.
 
 ## Grenzen (ehrlich)
 
 - **Kein „macht alles“-Agent.** Er arbeitet nur mit Text/Dateien im Workspace. Kein E-Mail-Versand,
-  kein Kalender, keine Shell. Erweiterung = neues Werkzeug in `agent.py` (bewusst, mit Rechteprüfung).
+  kein Kalender, keine Shell. Erweiterung = Dock-Plugin (bewusst, mit Freigabe).
+- **Windows-EXE ist nicht signiert.** SmartScreen warnt beim ersten Start („Weitere Informationen → Trotzdem
+  ausführen“). Für Weitergabe an Dritte: Code-Signing-Zertifikat nötig.
 - **Qualität ≠ druckreif ohne dich.** Das Gate fängt Strukturfehler, Bible-Widersprüche und
   Stil-Drift ab; literarische Endabnahme bleibt menschlich.
 - **Non-Fiction:** Fakten nur aus `ssot/sources/`. Fehlendes wird mit `[UNVERIFIED]`,
@@ -70,5 +133,5 @@ Ablage je Buch: `books/<slug>/{ssot,work,export}/`, `register.jsonl`, `audit.jso
 ## Tests
 
 ```bash
-python -m pytest tests/scriptor_tests   # offline, FakeLLM, keine API-Kosten
+python -m pytest tests/scriptor_tests   # offline, FakeLLM, keine API-Kosten (auch in CI auf Windows)
 ```
