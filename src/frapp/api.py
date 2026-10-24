@@ -20,6 +20,12 @@ from .models import Event, UsageRecord
 from .rate_limiter import limiter, rate_limit_exceeded_handler  # noqa: F401
 from .settings import settings
 from .docks import load_docks
+from godai.modules.mnemosyne import Mnemosyne
+from godai.modules.hermes import Hermes
+from godai.modules.dispatch_bridge import DispatchBridge
+from .mobile_dispatch import build_router
+from .mcp_dispatch import build_mcp_router
+from .chat import router as chat_router
 
 
 @asynccontextmanager
@@ -29,6 +35,12 @@ async def lifespan(app: FastAPI):
         json_logs=(settings.env == "production"),
     )
     init_db()
+    mnemosyne = Mnemosyne()
+    hermes = Hermes(mnemosyne=mnemosyne)
+    bridge = DispatchBridge(mnemosyne=mnemosyne)
+    app.include_router(build_router(bridge, hermes))
+    app.include_router(build_mcp_router(bridge, hermes))
+    app.include_router(chat_router)
     yield
 
 
@@ -433,6 +445,16 @@ def admin_usage(
 from .godai_router import router as godai_router  # noqa: E402
 
 app.include_router(godai_router, dependencies=[Depends(require_api_key)])
+
+
+# ── Dispatch Handy → Desktop, MCP und Chat (G.O.D.A.I. Dispatch-Bridge) ──────
+# Eigene HERMES-Token-Prüfung; schreibende Befehle brauchen immer Bestätigung.
+_dispatch_mnemosyne = Mnemosyne()
+_dispatch_hermes = Hermes(mnemosyne=_dispatch_mnemosyne)
+_dispatch_bridge = DispatchBridge(mnemosyne=_dispatch_mnemosyne)
+app.include_router(build_router(_dispatch_bridge, _dispatch_hermes))
+app.include_router(build_mcp_router(_dispatch_bridge, _dispatch_hermes))
+app.include_router(chat_router)
 
 
 # ── Docks (Plugins): z. B. SCRIPTOR unter /scriptor/ ─────────────────────────

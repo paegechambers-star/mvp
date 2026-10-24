@@ -1,0 +1,3 @@
+# Track this directory but ignore generated log files
+*
+!.gitignore
