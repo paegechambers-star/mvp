@@ -14,7 +14,6 @@ from godai.models.request import DataClass, InternalRequest, TrustLevel
 from godai.modules.apollon import Apollon, RoutingConfigError
 from godai.modules.mnemosyne import Mnemosyne
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -104,13 +103,16 @@ def test_invalid_yaml_raises(tmp_path: Path) -> None:
 
 
 def test_missing_default_raises(tmp_path: Path) -> None:
-    p = _write_routing(tmp_path, """
+    p = _write_routing(
+        tmp_path,
+        """
         version: "1.0"
         routes:
           - condition: "data_class == PUBLIC"
             model: "claude-haiku-4-5-20251001"
             reason: "Public"
-    """)
+    """,
+    )
     with pytest.raises(RoutingConfigError, match="default"):
         Apollon(Mnemosyne(), p)
 
@@ -160,7 +162,9 @@ async def test_public_routes_to_haiku(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_no_condition_match_uses_default(tmp_path: Path) -> None:
-    p = _write_routing(tmp_path, """
+    p = _write_routing(
+        tmp_path,
+        """
         version: "1.0"
         routes:
           - condition: "data_class == RESTRICTED"
@@ -169,7 +173,8 @@ async def test_no_condition_match_uses_default(tmp_path: Path) -> None:
           - default:
               model: "model-default"
               reason: "Default"
-    """)
+    """,
+    )
     a = Apollon(Mnemosyne(), p)
     req = _make_request(trust=TrustLevel.L1, dc=DataClass.PUBLIC)
     decision = await a.route(req, _allow())

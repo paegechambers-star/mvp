@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 
 def test_shell_served_and_root_redirects():
-    import frapp.api as api
+    from frapp import api
 
     with TestClient(api.app) as c:
         r = c.get("/", follow_redirects=False)
@@ -38,9 +38,7 @@ def test_prepare_desktop_sets_data_dir_and_single_key(tmp_path, monkeypatch):
 
 def test_contextos_view(tmp_path, monkeypatch):
     from contextos import Actor, Cluster, EntryType, Kind, TruthGate, generate_id
-
-    import frapp.api as api
-    from frapp import contextos_view
+    from frapp import api, contextos_view
 
     monkeypatch.setenv("FRAPP_DATA_DIR", str(tmp_path))
     contextos_view._state.clear()
@@ -49,8 +47,13 @@ def test_contextos_view(tmp_path, monkeypatch):
         assert c.get("/v1/contextos/status").status_code == 401
         st = c.get("/v1/contextos/status", headers=H).json()
         assert st["chain_ok"] and st["ssot"] == 0 and str(tmp_path) in st["path"]
-        nkid = generate_id(Kind.NK, Actor(list(Actor)[0]), Cluster(list(Cluster)[0]),
-                           EntryType(list(EntryType)[0]), TruthGate(list(TruthGate)[0]))
+        nkid = generate_id(
+            Kind.NK,
+            Actor(next(iter(Actor))),
+            Cluster(next(iter(Cluster))),
+            EntryType(next(iter(EntryType))),
+            TruthGate(next(iter(TruthGate))),
+        )
         ok = c.get(f"/v1/contextos/validate/{nkid}", headers=H).json()
         assert ok["valid"] is True
         assert c.get("/v1/contextos/validate/kaputt", headers=H).json()["valid"] is False

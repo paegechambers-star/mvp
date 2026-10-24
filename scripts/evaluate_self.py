@@ -14,6 +14,7 @@ Usage:
   python scripts/evaluate_self.py
   ANTHROPIC_API_KEY=sk-... python scripts/evaluate_self.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,9 +25,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-CYAN  = "\033[96m"
+CYAN = "\033[96m"
 GREEN = "\033[92m"
-BOLD  = "\033[1m"
+BOLD = "\033[1m"
 RESET = "\033[0m"
 YELLOW = "\033[93m"
 
@@ -90,11 +91,10 @@ TASK: Produce a structured pricing and value analysis in the following JSON form
 
 
 async def run_evaluation():
-    from godai.pipeline import GodaiPipeline
-    from godai.modules.hermes import create_token
-    from godai.models.request import TrustLevel
-
     from frapp.settings import settings
+    from godai.models.request import TrustLevel
+    from godai.modules.hermes import create_token
+    from godai.pipeline import GodaiPipeline
 
     print(f"\n{CYAN}{BOLD}══════════════════════════════════════════════════════════{RESET}")
     print(f"{CYAN}{BOLD}  G.O.D.A.I. SELF-EVALUATION — Price & Value Analysis{RESET}")
@@ -102,15 +102,19 @@ async def run_evaluation():
 
     if settings.anthropic_api_key:
         from godai.providers import AnthropicProvider
+
         provider = AnthropicProvider(api_key=settings.anthropic_api_key, max_tokens=2000)
         provider_name = "claude-opus-4-7 (AnthropicProvider)"
     else:
         from godai.providers import EchoProvider
+
         provider = EchoProvider()
         provider_name = "EchoProvider (set ANTHROPIC_API_KEY for real evaluation)"
 
     print(f"  Provider   : {provider_name}")
-    print(f"  Mode       : {'LIVE — real Claude reasoning' if settings.anthropic_api_key else 'DEV — deterministic analysis'}")
+    print(
+        f"  Mode       : {'LIVE — real Claude reasoning' if settings.anthropic_api_key else 'DEV — deterministic analysis'}"
+    )
     print()
 
     pipeline = GodaiPipeline.create(
@@ -132,7 +136,9 @@ async def run_evaluation():
     )
 
     print(f"  Pipeline success : {GREEN}{result.success}{RESET}")
-    print(f"  Model routed to  : {result.route_decision.model_id if result.route_decision else 'N/A'}")
+    print(
+        f"  Model routed to  : {result.route_decision.model_id if result.route_decision else 'N/A'}"
+    )
     print(f"  Audit entries    : {len(pipeline.mnemosyne)}")
     print(f"  Chain valid      : {GREEN}{pipeline.mnemosyne.verify_chain()}{RESET}")
     print()
@@ -200,7 +206,9 @@ def _print_structured(data: dict):
         print(f"{BOLD}── Recommended Pricing ───────────────────────────────────────{RESET}")
         for tier, details in pricing.items():
             print(f"  {BOLD}{tier.upper():<15}{RESET} {GREEN}{details.get('price', '')}{RESET}")
-            print(f"    Limits: {details.get('limits', '')}  |  Target: {details.get('target', '')}")
+            print(
+                f"    Limits: {details.get('limits', '')}  |  Target: {details.get('target', '')}"
+            )
         print()
 
     rationale = data.get("pricing_rationale", "")
@@ -214,7 +222,7 @@ def _print_structured(data: dict):
     print(f"{BOLD}── SaaS Readiness ────────────────────────────────────────────{RESET}")
     print(f"  Score: {GREEN}{BOLD}{score}/10{RESET}")
     if gaps:
-        print(f"  Remaining gaps:")
+        print("  Remaining gaps:")
         for g in gaps:
             print(f"    • {g}")
     print()
@@ -249,11 +257,36 @@ def _print_deterministic_analysis():
 
     print(f"{BOLD}── Market Comparables ────────────────────────────────────────{RESET}")
     comparables = [
-        ("Guardrails AI",       "$500–$2,000/mo",   "LLM output validation",          "Full governance pipeline + audit chain + GDPR"),
-        ("Arthur AI",           "$5,000–$20,000/mo", "ML monitoring",                 "Real-time policy enforcement + EU AI Act"),
-        ("Langfuse (cloud)",    "$0–$200/mo",        "Tracing / observability",        "Compliance-grade tamper-proof log + policy engine"),
-        ("Azure AI Content",    "pay-per-call",      "Content filtering",              "Multi-stage governance + offline deployment"),
-        ("Scale AI RLHF",       "$50–500/call",      "Quality assurance",             "Deterministic pipeline routing + tenant isolation"),
+        (
+            "Guardrails AI",
+            "$500–$2,000/mo",
+            "LLM output validation",
+            "Full governance pipeline + audit chain + GDPR",
+        ),
+        (
+            "Arthur AI",
+            "$5,000–$20,000/mo",
+            "ML monitoring",
+            "Real-time policy enforcement + EU AI Act",
+        ),
+        (
+            "Langfuse (cloud)",
+            "$0–$200/mo",
+            "Tracing / observability",
+            "Compliance-grade tamper-proof log + policy engine",
+        ),
+        (
+            "Azure AI Content",
+            "pay-per-call",
+            "Content filtering",
+            "Multi-stage governance + offline deployment",
+        ),
+        (
+            "Scale AI RLHF",
+            "$50–500/call",
+            "Quality assurance",
+            "Deterministic pipeline routing + tenant isolation",
+        ),
     ]
     for name, price, overlap, adds in comparables:
         print(f"  {name:<25} {price:<22}")
@@ -263,10 +296,25 @@ def _print_deterministic_analysis():
 
     print(f"{BOLD}── Recommended Pricing ───────────────────────────────────────{RESET}")
     tiers = [
-        ("STARTER",      "$149/month",    "50,000 governed queries/mo",     "Startups, internal tools, PoC"),
-        ("PROFESSIONAL", "$799/month",    "500,000 governed queries/mo",    "Scale-ups, regulated industries"),
-        ("ENTERPRISE",   "$3,500/month",  "Unlimited + SLA + onboarding",   "Banks, healthcare, EU-regulated"),
-        ("SELF-HOSTED",  "$15,000 once",  "Unlimited + source license",     "Sovereign cloud, air-gapped"),
+        ("STARTER", "$149/month", "50,000 governed queries/mo", "Startups, internal tools, PoC"),
+        (
+            "PROFESSIONAL",
+            "$799/month",
+            "500,000 governed queries/mo",
+            "Scale-ups, regulated industries",
+        ),
+        (
+            "ENTERPRISE",
+            "$3,500/month",
+            "Unlimited + SLA + onboarding",
+            "Banks, healthcare, EU-regulated",
+        ),
+        (
+            "SELF-HOSTED",
+            "$15,000 once",
+            "Unlimited + source license",
+            "Sovereign cloud, air-gapped",
+        ),
     ]
     for tier, price, limits, target in tiers:
         print(f"  {BOLD}{tier:<16}{RESET} {GREEN}{price}{RESET}")

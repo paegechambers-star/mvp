@@ -16,6 +16,7 @@ To activate local LLM:
     bash scripts/install_local_llm.sh          # Ollama + llama3.2:3b
     bash scripts/install_local_llm.sh --llamacpp  # llama-cpp-python + Phi-3
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,9 +31,9 @@ from tempfile import TemporaryDirectory
 
 PASS = "\033[92m✓\033[0m"
 FAIL = "\033[91m✗\033[0m"
-INFO = "\033[93m·\033[0m"   # informational — does not affect exit code
+INFO = "\033[93m·\033[0m"  # informational — does not affect exit code
 HEAD = "\033[1;94m"
-RST  = "\033[0m"
+RST = "\033[0m"
 
 _results: list[tuple[str, bool, str]] = []
 
@@ -61,6 +62,7 @@ def section(title: str) -> None:
 # G.O.D.A.I. smoke
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 async def smoke_godai() -> None:
     from godai.pipeline import GodaiPipeline
     from godai.providers import EchoProvider, LoggingProvider
@@ -80,14 +82,22 @@ async def smoke_godai() -> None:
     )
     check("PUBLIC/L1 request succeeds", r.success, r.error or "")
     check("Output is non-empty", bool(r.output))
-    check("Route → haiku model", r.route_decision is not None and "haiku" in r.route_decision.model_id.lower())
-    check("ATHENA validation passed", r.validation_result is not None and r.validation_result.passed)
+    check(
+        "Route → haiku model",
+        r.route_decision is not None and "haiku" in r.route_decision.model_id.lower(),
+    )
+    check(
+        "ATHENA validation passed", r.validation_result is not None and r.validation_result.passed
+    )
 
     # ── 2. INVARIANT 3 — all decisions logged ───────────────────────────────
     event_types = {e.event_type for e in pipeline.mnemosyne.entries}
     required = {"auth", "policy_check", "routing", "validation", "pipeline_success"}
-    check("INVARIANT 3 — all 5 event types logged", required <= event_types,
-          f"found={sorted(event_types)}")
+    check(
+        "INVARIANT 3 — all 5 event types logged",
+        required <= event_types,
+        f"found={sorted(event_types)}",
+    )
 
     # ── 3. MNEMOSYNE chain integrity ─────────────────────────────────────────
     check("MNEMOSYNE chain intact", pipeline.mnemosyne.verify_chain())
@@ -102,7 +112,10 @@ async def smoke_godai() -> None:
         context={"data_class": "SENSITIVE"},
     )
     check("SENSITIVE/L2 request succeeds", r2.success)
-    check("Route → sonnet model", r2.route_decision is not None and "sonnet" in r2.route_decision.model_id.lower())
+    check(
+        "Route → sonnet model",
+        r2.route_decision is not None and "sonnet" in r2.route_decision.model_id.lower(),
+    )
 
     # ── 5. THEMIS denial — SENSITIVE + L1 ───────────────────────────────────
     p3 = GodaiPipeline.create(llm_provider=EchoProvider())
@@ -127,7 +140,10 @@ async def smoke_godai() -> None:
     p4 = GodaiPipeline.create(llm_provider=EchoProvider())
     r4 = await p4.process(token=None, user_id="anon", protocol="http", query="q")
     check("Missing token → auth failure", not r4.success)
-    check("Auth failure logs pipeline_error", "pipeline_error" in {e.event_type for e in p4.mnemosyne.entries})
+    check(
+        "Auth failure logs pipeline_error",
+        "pipeline_error" in {e.event_type for e in p4.mnemosyne.entries},
+    )
 
     # ── 8. Rate limit ────────────────────────────────────────────────────────
     p5 = GodaiPipeline.create(llm_provider=EchoProvider(), rate_limit=2)
@@ -138,12 +154,15 @@ async def smoke_godai() -> None:
 
     # ── 9. INVARIANT 2 — Policy = Data ──────────────────────────────────────
     from pathlib import Path
+
     policy_yaml = Path(__file__).parent / "godai" / "config" / "policies" / "default.yaml"
     routing_yaml = Path(__file__).parent / "godai" / "config" / "routing" / "rules.yaml"
     check("INVARIANT 2 — policy file is YAML data", policy_yaml.exists())
     check("INVARIANT 2 — routing file is YAML data", routing_yaml.exists())
-    check("INVARIANT 2 — no rules hardcoded in pipeline.py",
-          "trust_level" not in Path(__file__).parent.joinpath("godai/pipeline.py").read_text())
+    check(
+        "INVARIANT 2 — no rules hardcoded in pipeline.py",
+        "trust_level" not in Path(__file__).parent.joinpath("godai/pipeline.py").read_text(),
+    )
 
     # ── 10. Generation failure path ──────────────────────────────────────────
     class FailProvider:
@@ -152,15 +171,22 @@ async def smoke_godai() -> None:
 
     p6 = GodaiPipeline.create(llm_provider=FailProvider())
     r6 = await p6.process(
-        token="basic-tok12345", user_id="u", protocol="http", query="q",
+        token="basic-tok12345",
+        user_id="u",
+        protocol="http",
+        query="q",
         context={"data_class": "PUBLIC"},
     )
-    check("Generation failure returns error", not r6.success and "Generation failed" in (r6.error or ""))
+    check(
+        "Generation failure returns error",
+        not r6.success and "Generation failed" in (r6.error or ""),
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ContextOS smoke
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def smoke_contextos() -> None:
     section("ContextOS™ — Knowledge-Governance Layer")
@@ -168,16 +194,22 @@ def smoke_contextos() -> None:
     import sqlite3
     from datetime import datetime, timezone
 
-    from contextos.id_generator import generate_id, validate_id, parse_id
-    from contextos.store import write_blob, read_blob, sha256_of
-    from contextos.log import ContextOSLog, TamperDetectedError
     from contextos.commit import make_commit
-    from contextos.register import Register
+    from contextos.id_generator import generate_id, parse_id, validate_id
     from contextos.index import ContextOSIndex
+    from contextos.log import ContextOSLog, TamperDetectedError
+    from contextos.register import Register
     from contextos.resolver import Resolver
+    from contextos.store import read_blob, sha256_of, write_blob
     from contextos.types import (
-        Kind, Actor, Cluster, EntryType, TruthGate, CommitOp,
-        SSOTEntry, WorkEntry,
+        Actor,
+        Cluster,
+        CommitOp,
+        EntryType,
+        Kind,
+        SSOTEntry,
+        TruthGate,
+        WorkEntry,
     )
 
     with TemporaryDirectory() as tmp:
@@ -185,8 +217,13 @@ def smoke_contextos() -> None:
 
         # ── ID generator ─────────────────────────────────────────────────────
         nkid = generate_id(
-            Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-            TruthGate.UNVERIFIED, time_bucket="00", sequence=0,
+            Kind.NK,
+            Actor.USER,
+            Cluster.GENERAL,
+            EntryType.FACT,
+            TruthGate.UNVERIFIED,
+            time_bucket="00",
+            sequence=0,
         )
         check("ID is 16 chars", len(nkid) == 16, nkid)
         check("ID validates", validate_id(nkid))
@@ -209,8 +246,15 @@ def smoke_contextos() -> None:
         db_path = base / "contextos.db"
         log = ContextOSLog(db_path)
         commit1 = make_commit(CommitOp.PATCH, nkid, Actor.USER, "a" * 64)
-        mkid = generate_id(Kind.MK, Actor.USER, Cluster.GENERAL, EntryType.ANNOTATION,
-                           TruthGate.UNVERIFIED, time_bucket="00", sequence=1)
+        mkid = generate_id(
+            Kind.MK,
+            Actor.USER,
+            Cluster.GENERAL,
+            EntryType.ANNOTATION,
+            TruthGate.UNVERIFIED,
+            time_bucket="00",
+            sequence=1,
+        )
         commit2 = make_commit(CommitOp.PATCH, mkid, Actor.SYSTEM, "b" * 64)
 
         with sqlite3.connect(str(db_path)) as conn:
@@ -232,8 +276,15 @@ def smoke_contextos() -> None:
         reg = Register(reg_db, log2)
 
         now = datetime.now(timezone.utc)
-        src_id = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-                             TruthGate.UNVERIFIED, time_bucket="01", sequence=0)
+        src_id = generate_id(
+            Kind.NK,
+            Actor.USER,
+            Cluster.GENERAL,
+            EntryType.FACT,
+            TruthGate.UNVERIFIED,
+            time_bucket="01",
+            sequence=0,
+        )
         ssot_entry = SSOTEntry(
             nkid=src_id,
             content="Paris is the capital of France",
@@ -248,8 +299,15 @@ def smoke_contextos() -> None:
         fetched = reg.get_ssot(src_id)
         check("SSOT insert + get", fetched is not None and fetched.content.startswith("Paris"))
 
-        wk_id = generate_id(Kind.MK, Actor.USER, Cluster.GENERAL, EntryType.ANNOTATION,
-                            TruthGate.UNVERIFIED, time_bucket="01", sequence=1)
+        wk_id = generate_id(
+            Kind.MK,
+            Actor.USER,
+            Cluster.GENERAL,
+            EntryType.ANNOTATION,
+            TruthGate.UNVERIFIED,
+            time_bucket="01",
+            sequence=1,
+        )
         work_entry = WorkEntry(
             mkid=wk_id,
             content="draft note",
@@ -302,17 +360,22 @@ def smoke_contextos() -> None:
 
 def _is_frozen(obj: object) -> bool:
     import dataclasses
-    return dataclasses.is_dataclass(obj) and bool(getattr(type(obj), "__dataclass_params__", None) and type(obj).__dataclass_params__.frozen)
+
+    return dataclasses.is_dataclass(obj) and bool(
+        getattr(type(obj), "__dataclass_params__", None) and type(obj).__dataclass_params__.frozen
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # FraPP API smoke
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def smoke_frapp() -> None:
     section("FraPP — REST API Endpoints")
     try:
         from fastapi.testclient import TestClient
+
         from frapp.api import app
         from frapp.db import init_db
 
@@ -323,9 +386,13 @@ def smoke_frapp() -> None:
         check("GET /healthz → 200", r.status_code == 200)
         check("/healthz status=ok", r.json().get("status") == "ok")
 
-        r2 = client.get("/v1/events")
+        from frapp.settings import settings as _settings
+
+        # /v1/events verlangt X-API-Key und liefert eine Seite {"data": [...], "total": n}
+        check("GET /v1/events ohne Key → 401", client.get("/v1/events").status_code == 401)
+        r2 = client.get("/v1/events", headers={"X-API-Key": _settings.api_key})
         check("GET /v1/events → 200", r2.status_code == 200)
-        check("/v1/events returns list", isinstance(r2.json(), list))
+        check("/v1/events returns page with list", isinstance(r2.json().get("data"), list))
 
     except Exception as exc:
         check("FraPP API smoke", False, str(exc))
@@ -335,22 +402,26 @@ def smoke_frapp() -> None:
 # MNEMOSYNE tamper detection (standalone)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 async def smoke_mnemosyne() -> None:
     section("MNEMOSYNE — Append-Only Tamper-Evident Audit Log")
 
-    from godai.modules.mnemosyne import Mnemosyne, TamperDetectedError
-    from godai.models.audit import AuditEvent
     from datetime import datetime, timezone
+
+    from godai.models.audit import AuditEvent
+    from godai.modules.mnemosyne import Mnemosyne
 
     m = Mnemosyne()
 
     for i in range(5):
-        await m.append(AuditEvent(
-            event_type="test_event",
-            event_data={"seq": i},
-            source_module="PIPELINE",
-            timestamp=datetime.now(timezone.utc),
-        ))
+        await m.append(
+            AuditEvent(
+                event_type="test_event",
+                event_data={"seq": i},
+                source_module="PIPELINE",
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
 
     check("5 entries appended", len(m) == 5)
     check("Chain valid", m.verify_chain())
@@ -371,32 +442,43 @@ async def smoke_mnemosyne() -> None:
 # Local LLM probe (informational — never fails the suite)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 async def smoke_local_llm() -> None:
     section("Local Offline LLM — Availability Probe")
 
-    from godai.providers import OllamaProvider, LlamaCppProvider
+    from godai.providers import OllamaProvider
 
     # ── Ollama ──────────────────────────────────────────────────────────────
     provider = OllamaProvider()
     reachable = await provider.health_check()
-    probe("Ollama server :11434", reachable,
-          "run: bash scripts/install_local_llm.sh" if not reachable else "")
+    probe(
+        "Ollama server :11434",
+        reachable,
+        "run: bash scripts/install_local_llm.sh" if not reachable else "",
+    )
 
     if reachable:
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as c:
                 r = await c.get("http://localhost:11434/api/tags")
                 models = [m["name"] for m in r.json().get("models", [])]
-            probe("Ollama models available", bool(models),
-                  ", ".join(models[:3]) if models else "run: ollama pull llama3.2:3b")
+            probe(
+                "Ollama models available",
+                bool(models),
+                ", ".join(models[:3]) if models else "run: ollama pull llama3.2:3b",
+            )
             if models:
                 tag = models[0]
                 p = OllamaProvider(model=tag, max_tokens=32)
                 try:
                     out = await p.generate("claude-haiku-4-5-20251001", "Say: OK", {})
-                    probe(f"Ollama generate({tag})", bool(out.strip()),
-                          out.strip()[:60] if out else "no output")
+                    probe(
+                        f"Ollama generate({tag})",
+                        bool(out.strip()),
+                        out.strip()[:60] if out else "no output",
+                    )
                 except Exception as exc:
                     probe(f"Ollama generate({tag})", False, str(exc)[:80])
         except Exception as exc:
@@ -406,14 +488,17 @@ async def smoke_local_llm() -> None:
     llamacpp_ok = False
     try:
         import llama_cpp  # type: ignore[import]  # noqa: F401
+
         llamacpp_ok = True
     except ImportError:
         pass
-    probe("llama-cpp-python", llamacpp_ok,
-          "pip install llama-cpp-python" if not llamacpp_ok else "")
+    probe(
+        "llama-cpp-python", llamacpp_ok, "pip install llama-cpp-python" if not llamacpp_ok else ""
+    )
 
     # Search for GGUF model
     from pathlib import Path as _Path
+
     gguf = None
     for d in [_Path("models"), _Path.home() / ".frapp" / "models"]:
         if d.exists():
@@ -421,19 +506,23 @@ async def smoke_local_llm() -> None:
             if found:
                 gguf = found[0]
                 break
-    probe("GGUF model file", gguf is not None,
-          str(gguf) if gguf else "bash scripts/install_local_llm.sh --llamacpp")
+    probe(
+        "GGUF model file",
+        gguf is not None,
+        str(gguf) if gguf else "bash scripts/install_local_llm.sh --llamacpp",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Summary
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def print_summary() -> int:
     section("SMOKE TEST SUMMARY")
     passed = sum(1 for _, ok, _ in _results if ok)
     failed = sum(1 for _, ok, _ in _results if not ok)
-    total  = len(_results)
+    total = len(_results)
 
     if failed:
         print(f"\n{FAIL}  FAILED CHECKS:")
@@ -453,9 +542,9 @@ async def main() -> int:
     print(f"{HEAD}{'═' * 60}{RST}")
 
     sections = [
-        ("G.O.D.A.I. Pipeline",    smoke_godai()),
-        ("MNEMOSYNE",              smoke_mnemosyne()),
-        ("Local LLM probe",        smoke_local_llm()),
+        ("G.O.D.A.I. Pipeline", smoke_godai()),
+        ("MNEMOSYNE", smoke_mnemosyne()),
+        ("Local LLM probe", smoke_local_llm()),
     ]
 
     for label, coro in sections:

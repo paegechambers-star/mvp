@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any
 
 from scriptor.docks import Dock, DockRegistry
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 # Lesbarkeit
 # ---------------------------------------------------------------------------
 
-_VOWELS = re.compile(r"[aeiouyäöü]+", re.I)
+_VOWELS = re.compile(r"[aeiouyäöü]+", re.IGNORECASE)
 _WORD = re.compile(r"[A-Za-zÄÖÜäöüß]+")
 
 
@@ -33,7 +33,7 @@ def _syllables(word: str) -> int:
     return max(1, len(_VOWELS.findall(word)))
 
 
-def readability(text: str) -> Dict[str, float]:
+def readability(text: str) -> dict[str, float]:
     """Deutsche Lesbarkeitsindizes (Näherung über Vokalgruppen als Silben)."""
     sentences = [s for s in re.split(r"[.!?…]+", text) if _WORD.search(s)]
     words = _WORD.findall(text)
@@ -65,12 +65,12 @@ def interpret(flesch: float) -> str:
     return "schwer (Fachtext)"
 
 
-def book_readability(project: Any) -> List[Dict[str, Any]]:
+def book_readability(project: Any) -> list[dict[str, Any]]:
     rows = []
     for ch in project.outline:
         latest = project.latest_chapter(int(ch["nr"]))
         if latest:
-            r: Dict[str, Any] = dict(readability(latest[1]))
+            r: dict[str, Any] = dict(readability(latest[1]))
             r["nr"] = int(ch["nr"])
             r["level"] = interpret(r.get("flesch_amstad", 0))
             rows.append(r)
@@ -83,7 +83,7 @@ class LesbarkeitDock(Dock):
     description = "Lesbarkeitsindizes (Flesch-Amstad, Wiener Sachtextformel) je Kapitel"
 
     def load(self, registry: DockRegistry) -> bool:
-        def tool(agent: "Agent", slug: str) -> str:
+        def tool(agent: Agent, slug: str) -> str:
             rows = book_readability(agent._book(slug))
             if not rows:
                 return "Noch keine Kapitel mit Text."
@@ -97,8 +97,12 @@ class LesbarkeitDock(Dock):
             "readability",
             "Lesbarkeit aller Kapitel eines Buchs (Flesch-Amstad, Wiener Sachtextformel). "
             "Nutze es, um Zielgruppen-Passung zu prüfen.",
-            {"type": "object", "properties": {"slug": {"type": "string"}},
-             "required": ["slug"], "additionalProperties": False},
+            {
+                "type": "object",
+                "properties": {"slug": {"type": "string"}},
+                "required": ["slug"],
+                "additionalProperties": False,
+            },
             tool,
         )
 
@@ -114,8 +118,10 @@ class LesbarkeitDock(Dock):
 
                 p = BookProject.load(Settings.load().workspace_path(), slug)
                 for r in book_readability(p):
-                    typer.echo(f"Kap. {r['nr']:>3}: Flesch {r['flesch_amstad']:>6} "
-                               f"WSTF {r['wiener_sachtext']:>5}  {r['level']}")
+                    typer.echo(
+                        f"Kap. {r['nr']:>3}: Flesch {r['flesch_amstad']:>6} "
+                        f"WSTF {r['wiener_sachtext']:>5}  {r['level']}"
+                    )
 
             registry.add_cli("lesbarkeit", cli)
         except ImportError:
@@ -125,7 +131,7 @@ class LesbarkeitDock(Dock):
             router = APIRouter()
 
             @router.get("/api/docks/lesbarkeit/{slug}")
-            def _api(slug: str, request: Request) -> List[Dict[str, Any]]:
+            def _api(slug: str, request: Request) -> list[dict[str, Any]]:
                 return book_readability(request.app.state.project(slug))
 
             registry.add_router(router)
@@ -168,18 +174,22 @@ class DocxExportDock(Dock):
         except ImportError:
             return False  # optional: pip install python-docx
 
-        def tool(agent: "Agent", slug: str) -> str:
+        def tool(agent: Agent, slug: str) -> str:
             out = export_docx(agent._book(slug))
             return f"Exportiert: {out.relative_to(agent.workspace)}"
 
         registry.add_tool(
             "export_docx",
             "Exportiert das Manuskript als Word-Datei (.docx).",
-            {"type": "object", "properties": {"slug": {"type": "string"}},
-             "required": ["slug"], "additionalProperties": False},
+            {
+                "type": "object",
+                "properties": {"slug": {"type": "string"}},
+                "required": ["slug"],
+                "additionalProperties": False,
+            },
             tool,
         )
         return True
 
 
-BUILTIN_DOCKS: List[Any] = [LesbarkeitDock, DocxExportDock]
+BUILTIN_DOCKS: list[Any] = [LesbarkeitDock, DocxExportDock]

@@ -9,6 +9,7 @@ Custom gauges:
   frapp_mnemosyne_entries_total  — current MNEMOSYNE chain length
   frapp_pipeline_requests_total  — labelled by success/failure
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,11 +23,13 @@ _logger = logging.getLogger("frapp.metrics")
 _instrumentator = None
 
 
-def setup_metrics(app: "FastAPI") -> None:
+def setup_metrics(app: FastAPI) -> None:
     """Instrument the FastAPI app and expose /metrics.  No-op if package missing."""
     global _instrumentator
     try:
-        from prometheus_fastapi_instrumentator import Instrumentator  # type: ignore[import]
+        from prometheus_fastapi_instrumentator import (
+            Instrumentator,  # type: ignore[import]
+        )
 
         _instrumentator = Instrumentator(
             should_group_status_codes=False,

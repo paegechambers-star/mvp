@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from contextos.resolver import Resolver
 from contextos.types import Citation, Cluster, TruthGate
 from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
@@ -41,11 +39,13 @@ def test_citation_graph_has_nodes(resolver: Resolver, register):
     nkid2 = make_nkid(1)
     register.insert_ssot(make_ssot(nkid1))
     cit = Citation(source_id=nkid1, relation="supports")
-    register.insert_ssot(make_ssot(
-        nkid2,
-        truth_gate=TruthGate.SINGLE_SOURCE,
-        citations=(cit,),
-    ))
+    register.insert_ssot(
+        make_ssot(
+            nkid2,
+            truth_gate=TruthGate.SINGLE_SOURCE,
+            citations=(cit,),
+        )
+    )
     G = resolver.build_citation_graph()
     assert nkid1 in G.nodes
     assert nkid2 in G.nodes
@@ -56,10 +56,12 @@ def test_find_unverified(resolver: Resolver, register):
     nkid_unv = make_nkid(0)
     nkid_auth = make_nkid(1)
     register.insert_ssot(make_ssot(nkid_unv, truth_gate=TruthGate.UNVERIFIED))
-    register.insert_ssot(make_ssot(
-        nkid_auth,
-        truth_gate=TruthGate.EMPTY_BUT_VERIFIED,
-    ))
+    register.insert_ssot(
+        make_ssot(
+            nkid_auth,
+            truth_gate=TruthGate.EMPTY_BUT_VERIFIED,
+        )
+    )
     unverified = resolver.find_unverified()
     ids = [e.nkid for e in unverified]
     assert nkid_unv in ids
@@ -71,7 +73,9 @@ def test_validate_citations_detects_violation(resolver: Resolver, register):
     # (bypassing the invariant check in register to test the resolver's checker)
     import sqlite3
     from datetime import datetime, timezone
+
     from contextos.store import sha256_of
+
     nkid = make_nkid(2)
     now = datetime.now(timezone.utc).isoformat()
     content = "bad assertion"
@@ -79,8 +83,16 @@ def test_validate_citations_detects_violation(resolver: Resolver, register):
         conn.execute(
             "INSERT INTO ssot (nkid,content,truth_gate,citations,content_hash,"
             "created_at,cluster,actor) VALUES (?,?,?,?,?,?,?,?)",
-            (nkid, content, TruthGate.SINGLE_SOURCE.value, "[]",
-             sha256_of(content), now, Cluster.GENERAL.value, "01"),
+            (
+                nkid,
+                content,
+                TruthGate.SINGLE_SOURCE.value,
+                "[]",
+                sha256_of(content),
+                now,
+                Cluster.GENERAL.value,
+                "01",
+            ),
         )
     violations = resolver.validate_citations()
     assert any(v["nkid"] == nkid for v in violations)

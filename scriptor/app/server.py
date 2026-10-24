@@ -11,8 +11,9 @@ Sicherheit:
 from __future__ import annotations
 
 import hmac
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request
@@ -50,7 +51,7 @@ class TextFile(BaseModel):
 
 
 class VoiceIn(BaseModel):
-    samples: List[TextFile]
+    samples: list[TextFile]
     describe: bool = True
 
 
@@ -66,15 +67,15 @@ class ChapterEdit(BaseModel):
 
 
 class ActionIn(BaseModel):
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
 
 
 class SettingsIn(BaseModel):
-    workspace: Optional[str] = None
-    model: Optional[str] = None
-    web_search: Optional[bool] = None
-    enabled_plugins: Optional[List[str]] = None
-    disabled_docks: Optional[List[str]] = None
+    workspace: str | None = None
+    model: str | None = None
+    web_search: bool | None = None
+    enabled_plugins: list[str] | None = None
+    disabled_docks: list[str] | None = None
 
 
 class ApiKeyIn(BaseModel):
@@ -98,10 +99,10 @@ def _safe_name(name: str) -> str:
     return base
 
 
-def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> FastAPI:
+def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastAPI:
     app = FastAPI(title="SCRIPTOR", version=__version__, docs_url=None, redoc_url=None)
     jobs = jobs or JobManager()
-    sessions: Dict[str, Dict[str, Any]] = {}
+    sessions: dict[str, dict[str, Any]] = {}
     app.state.jobs = jobs
     app.state.runtime = rt
 
@@ -123,7 +124,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         path = request.scope.get("path", "")
         root = request.scope.get("root_path", "")
         if root and path.startswith(root):
-            path = path[len(root):]
+            path = path[len(root) :]
         if path.startswith("/api/") or path == "/api":
             given = request.headers.get("x-scriptor-token") or request.query_params.get("token", "")
             if not hmac.compare_digest(given, token):
@@ -147,7 +148,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
     # -- Info & Einstellungen ------------------------------------------
 
     @app.get("/api/info")
-    def info() -> Dict[str, Any]:
+    def info() -> dict[str, Any]:
         return {
             "version": __version__,
             "model": rt.settings.model,
@@ -161,40 +162,49 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         }
 
     @app.get("/api/governance")
-    def governance() -> Dict[str, Any]:
+    def governance() -> dict[str, Any]:
         if rt.governance is None:
             return {"active": False}
         return dict(rt.governance.status())
 
     @app.get("/api/settings")
-    def get_settings() -> Dict[str, Any]:
+    def get_settings() -> dict[str, Any]:
         return {**rt.settings.__dict__, "workspace_resolved": str(rt.workspace)}
 
     @app.put("/api/settings")
-    def put_settings(body: SettingsIn) -> Dict[str, Any]:
+    def put_settings(body: SettingsIn) -> dict[str, Any]:
         for k, v in body.model_dump(exclude_none=True).items():
             setattr(rt.settings, k, v)
         rt.settings.save()
         return {"saved": True, "restart_needed_for_plugins": True}
 
     @app.put("/api/settings/api-key")
-    def put_api_key(body: ApiKeyIn) -> Dict[str, Any]:
+    def put_api_key(body: ApiKeyIn) -> dict[str, Any]:
         if not set_api_key(body.key.strip()):
-            raise HTTPException(501, "Kein OS-Tresor verfügbar — ANTHROPIC_API_KEY als Umgebungsvariable setzen")
+            raise HTTPException(
+                501, "Kein OS-Tresor verfügbar — ANTHROPIC_API_KEY als Umgebungsvariable setzen"
+            )
         return {"api_key": api_key_status()}
 
     @app.get("/api/genres")
-    def genres() -> List[Dict[str, Any]]:
+    def genres() -> list[dict[str, Any]]:
         return [
-            {"id": g.id, "name": g.name, "audience": g.audience, "fiction": g.fiction,
-             "target_words": g.target_words, "chapters": g.chapters["default"], "unit": g.unit_label}
+            {
+                "id": g.id,
+                "name": g.name,
+                "audience": g.audience,
+                "fiction": g.fiction,
+                "target_words": g.target_words,
+                "chapters": g.chapters["default"],
+                "unit": g.unit_label,
+            }
             for g in all_genres()
         ]
 
     # -- Bücher --------------------------------------------------------
 
     @app.get("/api/books")
-    def books() -> List[Dict[str, Any]]:
+    def books() -> list[dict[str, Any]]:
         out = []
         for slug in BookProject.list_slugs(rt.workspace):
             p = BookProject.load(rt.workspace, slug)
@@ -202,7 +212,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         return out
 
     @app.post("/api/books")
-    def create_book(body: NewBook) -> Dict[str, Any]:
+    def create_book(body: NewBook) -> dict[str, Any]:
         try:
             p = BookProject.create(rt.workspace, body.title, body.genre, body.idea, body.author)
         except GenreError as exc:
@@ -210,7 +220,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         return {"slug": p.slug}
 
     @app.get("/api/books/{slug}")
-    def book(slug: str) -> Dict[str, Any]:
+    def book(slug: str) -> dict[str, Any]:
         p = project(slug)
         exports = sorted(f.name for f in (p.root / "export").glob("*") if f.is_file())
         return {
@@ -226,27 +236,39 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         }
 
     @app.get("/api/books/{slug}/chapters/{nr}")
-    def chapter(slug: str, nr: int, version: Optional[int] = None) -> Dict[str, Any]:
+    def chapter(slug: str, nr: int, version: int | None = None) -> dict[str, Any]:
         p = project(slug)
         versions = [v for v, _ in p._chapter_versions(nr)]
         if not versions:
-            return {"nr": nr, "versions": [], "text": "", "review": None, "plan": p.chapter_plan(nr)}
+            return {
+                "nr": nr,
+                "versions": [],
+                "text": "",
+                "review": None,
+                "plan": p.chapter_plan(nr),
+            }
         v = version or versions[-1]
         if v not in versions:
             raise HTTPException(404, f"Version {v} existiert nicht")
         text = (p.root / "work" / "chapters" / f"kap-{nr:02d}.v{v}.md").read_text(encoding="utf-8")
-        return {"nr": nr, "version": v, "versions": versions, "text": text,
-                "review": p.read_review(nr, v), "plan": p.chapter_plan(nr)}
+        return {
+            "nr": nr,
+            "version": v,
+            "versions": versions,
+            "text": text,
+            "review": p.read_review(nr, v),
+            "plan": p.chapter_plan(nr),
+        }
 
     @app.put("/api/books/{slug}/chapters/{nr}")
-    def edit_chapter(slug: str, nr: int, body: ChapterEdit) -> Dict[str, Any]:
+    def edit_chapter(slug: str, nr: int, body: ChapterEdit) -> dict[str, Any]:
         p = project(slug)
         p.chapter_plan(nr)
         version, rid = p.write_chapter(nr, body.text.rstrip() + "\n", body.reason)
         return {"version": version, "register_id": rid}
 
     @app.patch("/api/books/{slug}/bible")
-    def patch_bible(slug: str, body: BiblePatch) -> Dict[str, Any]:
+    def patch_bible(slug: str, body: BiblePatch) -> dict[str, Any]:
         p = project(slug)
         try:
             data = yaml.safe_load(body.yaml)
@@ -262,14 +284,14 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         return {"register_id": p.commit_ssot("bible", data, body.reason, body.kind)}
 
     @app.post("/api/books/{slug}/sources")
-    def add_source(slug: str, body: TextFile) -> Dict[str, Any]:
+    def add_source(slug: str, body: TextFile) -> dict[str, Any]:
         name = _safe_name(body.filename)
         return {"register_id": project(slug).add_source_text(name, body.content), "file": name}
 
     @app.get("/api/books/{slug}/export/{filename}")
     def download(slug: str, filename: str) -> FileResponse:
         p = project(slug)
-        target = (p.root / "export" / Path(filename).name)
+        target = p.root / "export" / Path(filename).name
         if not target.is_file():
             raise HTTPException(404, "Datei nicht gefunden")
         return FileResponse(target, filename=target.name)
@@ -279,7 +301,9 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
     def _gw() -> Ghostwriter:
         return Ghostwriter(rt.llm())
 
-    def _action(p: BookProject, action: str, params: Dict[str, Any]) -> Callable[[Callable[[str], None]], Any]:
+    def _action(
+        p: BookProject, action: str, params: dict[str, Any]
+    ) -> Callable[[Callable[[str], None]], Any]:
         nr = int(params.get("nr", 0))
 
         def run(log: Callable[[str], None]) -> Any:
@@ -297,9 +321,12 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
                 return {"version": gw.revise_chapter(p, nr, str(params.get("instructions", "")))}
             if action == "write_book":
                 res = gw.write_book(
-                    p, int(params.get("start") or 1), params.get("end") or None,
-                    progress=lambda r: log(f"Kap. {r.nr} v{r.version}: {r.verdict} ({r.score}) "
-                                           + "; ".join(r.reasons)),
+                    p,
+                    int(params.get("start") or 1),
+                    params.get("end") or None,
+                    progress=lambda r: log(
+                        f"Kap. {r.nr} v{r.version}: {r.verdict} ({r.score}) " + "; ".join(r.reasons)
+                    ),
                 )
                 return [r.__dict__ for r in res]
             if action == "material":
@@ -314,15 +341,27 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
 
                 return export_docx(p).name
             if action == "voice":
-                return gw.learn_voice(p, [Path(x) for x in params["paths"]], bool(params.get("describe", True)))
+                return gw.learn_voice(
+                    p, [Path(x) for x in params["paths"]], bool(params.get("describe", True))
+                )
             raise ValueError(f"Unbekannte Aktion {action}")
 
         return run
 
-    _ACTIONS = {"bible", "outline", "draft", "review", "revise", "write_book", "material", "export", "export_docx"}
+    _ACTIONS = {
+        "bible",
+        "outline",
+        "draft",
+        "review",
+        "revise",
+        "write_book",
+        "material",
+        "export",
+        "export_docx",
+    }
 
     @app.post("/api/books/{slug}/actions/{action}")
-    def action(slug: str, action: str, body: ActionIn) -> Dict[str, Any]:
+    def action(slug: str, action: str, body: ActionIn) -> dict[str, Any]:
         if action not in _ACTIONS:
             raise HTTPException(404, f"Unbekannte Aktion '{action}'")
         p = project(slug)
@@ -330,7 +369,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         return job.to_dict()
 
     @app.post("/api/books/{slug}/voice")
-    def voice(slug: str, body: VoiceIn) -> Dict[str, Any]:
+    def voice(slug: str, body: VoiceIn) -> dict[str, Any]:
         p = project(slug)
         sample_dir = p.root / "ssot" / "voice_samples"
         sample_dir.mkdir(exist_ok=True)
@@ -339,16 +378,19 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
             target = sample_dir / _safe_name(f.filename)
             target.write_text(f.content, encoding="utf-8")
             paths.append(str(target))
-        job = jobs.submit("voice", f"book:{slug}",
-                          _action(p, "voice", {"paths": paths, "describe": body.describe}))
+        job = jobs.submit(
+            "voice",
+            f"book:{slug}",
+            _action(p, "voice", {"paths": paths, "describe": body.describe}),
+        )
         return job.to_dict()
 
     @app.get("/api/jobs")
-    def list_jobs() -> List[Dict[str, Any]]:
+    def list_jobs() -> list[dict[str, Any]]:
         return [j.to_dict() for j in jobs.list()]
 
     @app.get("/api/jobs/{job_id}")
-    def get_job(job_id: str) -> Dict[str, Any]:
+    def get_job(job_id: str) -> dict[str, Any]:
         job = jobs.get(job_id)
         if job is None:
             raise HTTPException(404, "Job nicht gefunden")
@@ -357,29 +399,37 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
     # -- Agent ---------------------------------------------------------
 
     @app.post("/api/agent/sessions")
-    def new_session() -> Dict[str, Any]:
+    def new_session() -> dict[str, Any]:
         import uuid
 
         sid = uuid.uuid4().hex[:12]
-        state: Dict[str, Any] = {"transcript": [], "allow": False}
+        state: dict[str, Any] = {"transcript": [], "allow": False}
 
-        def approve(name: str, args: Dict[str, Any]) -> bool:
-            state["transcript"].append({"kind": "approval", "text": f"{name}: "
-                                        + ("freigegeben" if state["allow"] else "abgelehnt")})
+        def approve(name: str, args: dict[str, Any]) -> bool:
+            state["transcript"].append(
+                {
+                    "kind": "approval",
+                    "text": f"{name}: " + ("freigegeben" if state["allow"] else "abgelehnt"),
+                }
+            )
             return bool(state["allow"])
 
         def on_event(kind: str, text: str) -> None:
             state["transcript"].append({"kind": kind, "text": text})
 
         state["agent"] = Agent(
-            rt.llm(), rt.workspace, approve=approve, web_search=rt.settings.web_search,
-            on_event=on_event, docks=rt.docks,
+            rt.llm(),
+            rt.workspace,
+            approve=approve,
+            web_search=rt.settings.web_search,
+            on_event=on_event,
+            docks=rt.docks,
         )
         sessions[sid] = state
         return {"id": sid}
 
     @app.post("/api/agent/sessions/{sid}/messages")
-    def agent_message(sid: str, body: AgentMessage) -> Dict[str, Any]:
+    def agent_message(sid: str, body: AgentMessage) -> dict[str, Any]:
         state = sessions.get(sid)
         if state is None:
             raise HTTPException(404, "Sitzung nicht gefunden")
@@ -394,7 +444,7 @@ def create_app(rt: Runtime, token: str, jobs: Optional[JobManager] = None) -> Fa
         return jobs.submit("agent", f"agent:{sid}", run).to_dict()
 
     @app.get("/api/agent/sessions/{sid}")
-    def agent_session(sid: str) -> Dict[str, Any]:
+    def agent_session(sid: str) -> dict[str, Any]:
         state = sessions.get(sid)
         if state is None:
             raise HTTPException(404, "Sitzung nicht gefunden")

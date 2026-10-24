@@ -11,19 +11,18 @@ from __future__ import annotations
 import re
 import statistics
 from collections import Counter
-from typing import Dict, List
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 _WORD = re.compile(r"[A-Za-zÄÖÜäöüß'-]+")
-_DIALOG = re.compile(r"[„\"»«“”].+?[“\"«»”]", re.S)
+_DIALOG = re.compile(r"[„\"»«“”].+?[“\"«»”]", re.DOTALL)
 
 
-def _sentences(text: str) -> List[str]:
+def _sentences(text: str) -> list[str]:
     flat = re.sub(r"\s+", " ", text.strip())
     return [s for s in _SENT_SPLIT.split(flat) if _WORD.search(s)]
 
 
-def analyze(text: str) -> Dict[str, float]:
+def analyze(text: str) -> dict[str, float]:
     """Stilometrische Kennzahlen eines Textes."""
     sents = _sentences(text)
     words = _WORD.findall(text)
@@ -46,13 +45,13 @@ def analyze(text: str) -> Dict[str, float]:
     }
 
 
-def top_words(text: str, n: int = 15, min_len: int = 5) -> List[str]:
+def top_words(text: str, n: int = 15, min_len: int = 5) -> list[str]:
     """Häufigste längere Wörter — Hinweis auf Lieblingswörter/Tics."""
     counts = Counter(w.lower() for w in _WORD.findall(text) if len(w) >= min_len)
     return [w for w, _ in counts.most_common(n)]
 
 
-def profile_brief(profile: Dict[str, float]) -> str:
+def profile_brief(profile: dict[str, float]) -> str:
     """Prompt-Block mit den Zielwerten."""
     if "avg_sentence_len" not in profile:
         return ""
@@ -68,11 +67,11 @@ def profile_brief(profile: Dict[str, float]) -> str:
     )
 
 
-def compare(profile: Dict[str, float], text: str) -> Dict[str, float]:
+def compare(profile: dict[str, float], text: str) -> dict[str, float]:
     """Relative Abweichung (0.0 = identisch) je Kennzahl."""
     actual = analyze(text)
     keys = ("avg_sentence_len", "avg_paragraph_sentences", "dialog_ratio", "avg_word_len")
-    out: Dict[str, float] = {}
+    out: dict[str, float] = {}
     for k in keys:
         if k in profile and k in actual and profile[k]:
             out[k] = round(abs(actual[k] - profile[k]) / profile[k], 3)

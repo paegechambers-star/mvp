@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,13 +14,17 @@ def _make_mnemosyne(delay: float = 0.0, fail: bool = False):
     """Build a minimal Mnemosyne mock."""
     m = MagicMock()
     if fail:
+
         async def _bad(*a, **kw):
             raise RuntimeError("MNEMOSYNE down")
+
         m.append = _bad
     else:
+
         async def _ok(*a, **kw):
             await asyncio.sleep(delay)
             return MagicMock()
+
         m.append = _ok
     return m
 
@@ -71,4 +75,4 @@ def test_fail_closed_on_exception():
 
 def test_shutdown_bridge_is_safe_to_call_multiple_times():
     shutdown_bridge()
-    shutdown_bridge()   # must not raise
+    shutdown_bridge()  # must not raise

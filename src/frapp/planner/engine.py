@@ -11,9 +11,11 @@ Regeln:
 
 from __future__ import annotations
 
+import itertools
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, time, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
 
 from .timesource import BERLIN, Timestamp
 
@@ -22,28 +24,28 @@ _ROUND_MIN = 5
 
 @dataclass
 class PlanRow:
-    start: Optional[str]          # ISO Berlin, None = ganztägig / ohne Uhrzeit
-    end: Optional[str]
+    start: str | None  # ISO Berlin, None = ganztägig / ohne Uhrzeit
+    end: str | None
     title: str
-    constraint: str               # HARD | SOFT | FLOAT
+    constraint: str  # HARD | SOFT | FLOAT
     domain: str
-    source: str                   # Quellenangabe (No-Citation = No-Assertion)
-    certainty: str                # VERIFIED | UNVERIFIED | ASSUMPTION (Inhalt)
-    time_basis: str               # "Quelle" | "Vorschlag (ASSUMPTION)" | "ganztägig"
-    ref: str                      # event:<id> | task:<id>
+    source: str  # Quellenangabe (No-Citation = No-Assertion)
+    certainty: str  # VERIFIED | UNVERIFIED | ASSUMPTION (Inhalt)
+    time_basis: str  # "Quelle" | "Vorschlag (ASSUMPTION)" | "ganztägig"
+    ref: str  # event:<id> | task:<id>
 
 
 @dataclass
 class DayPlan:
     day: str
-    timestamp: Dict[str, Any]
-    truth_gate: List[Dict[str, str]]
-    rows: List[PlanRow] = field(default_factory=list)
-    unplaced: List[Dict[str, Any]] = field(default_factory=list)
-    conflicts: List[Dict[str, Any]] = field(default_factory=list)
+    timestamp: dict[str, Any]
+    truth_gate: list[dict[str, str]]
+    rows: list[PlanRow] = field(default_factory=list)
+    unplaced: list[dict[str, Any]] = field(default_factory=list)
+    conflicts: list[dict[str, Any]] = field(default_factory=list)
     free_minutes: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         return d
 
@@ -62,10 +64,10 @@ def _round_up(dt: datetime) -> datetime:
 
 
 def _free_slots(
-    window: Tuple[datetime, datetime], busy: Iterable[Tuple[datetime, datetime]]
-) -> List[Tuple[datetime, datetime]]:
+    window: tuple[datetime, datetime], busy: Iterable[tuple[datetime, datetime]]
+) -> list[tuple[datetime, datetime]]:
     start, end = window
-    slots: List[Tuple[datetime, datetime]] = []
+    slots: list[tuple[datetime, datetime]] = []
     cursor = start
     for b_start, b_end in sorted(busy):
         if b_end <= cursor:
@@ -87,7 +89,7 @@ def build_day_plan(
     stamp: Timestamp,
     day_start: time = time(7, 0),
     day_end: time = time(22, 0),
-    external: Optional[Dict[str, str]] = None,
+    external: dict[str, str] | None = None,
 ) -> DayPlan:
     """
     ``events``: Objekte mit id, title, starts_at, ends_at, all_day, location.
@@ -102,8 +104,8 @@ def build_day_plan(
     if stamp.berlin.date() == day:
         window_start = max(window_start, _round_up(stamp.berlin))
 
-    rows: List[PlanRow] = []
-    busy: List[Tuple[datetime, datetime, str]] = []
+    rows: list[PlanRow] = []
+    busy: list[tuple[datetime, datetime, str]] = []
 
     # ── Termine (FraPP-Kalender) ─────────────────────────────────────────
     day_events = []
@@ -114,11 +116,33 @@ def build_day_plan(
         day_events.append(ev)
         src = f"FraPP-Kalender, Termin #{ev.id}" + (f" ({ev.location})" if ev.location else "")
         if ev.all_day:
-            rows.append(PlanRow(None, None, ev.title, "HARD", "Termin", src, "VERIFIED",
-                                "ganztägig", f"event:{ev.id}"))
+            rows.append(
+                PlanRow(
+                    None,
+                    None,
+                    ev.title,
+                    "HARD",
+                    "Termin",
+                    src,
+                    "VERIFIED",
+                    "ganztägig",
+                    f"event:{ev.id}",
+                )
+            )
             continue
-        rows.append(PlanRow(s.isoformat(timespec="minutes"), e.isoformat(timespec="minutes"),
-                            ev.title, "HARD", "Termin", src, "VERIFIED", "Quelle", f"event:{ev.id}"))
+        rows.append(
+            PlanRow(
+                s.isoformat(timespec="minutes"),
+                e.isoformat(timespec="minutes"),
+                ev.title,
+                "HARD",
+                "Termin",
+                src,
+                "VERIFIED",
+                "Quelle",
+                f"event:{ev.id}",
+            )
+        )
         busy.append((s, e, f"event:{ev.id}"))
 
     # ── Aufgaben ─────────────────────────────────────────────────────────
@@ -133,8 +157,19 @@ def build_day_plan(
             if s.date() != day:
                 continue
             e = s + timedelta(minutes=t.duration_min)
-            rows.append(PlanRow(s.isoformat(timespec="minutes"), e.isoformat(timespec="minutes"),
-                                t.title, "HARD", t.domain, src, cert, "Quelle", f"task:{t.id}"))
+            rows.append(
+                PlanRow(
+                    s.isoformat(timespec="minutes"),
+                    e.isoformat(timespec="minutes"),
+                    t.title,
+                    "HARD",
+                    t.domain,
+                    src,
+                    cert,
+                    "Quelle",
+                    f"task:{t.id}",
+                )
+            )
             busy.append((s, e, f"task:{t.id}"))
         else:
             flexible.append(t)
@@ -142,12 +177,14 @@ def build_day_plan(
     # ── Konflikte zwischen festen Blöcken ────────────────────────────────
     conflicts = []
     ordered = sorted(busy)
-    for (s1, e1, r1), (s2, e2, r2) in zip(ordered, ordered[1:]):
+    for (s1, e1, r1), (s2, e2, r2) in itertools.pairwise(ordered):
         if s2 < e1:
-            conflicts.append({"a": r1, "b": r2, "overlap_min": int((min(e1, e2) - s2).total_seconds() // 60)})
+            conflicts.append(
+                {"a": r1, "b": r2, "overlap_min": int((min(e1, e2) - s2).total_seconds() // 60)}
+            )
 
     # ── Flexible Aufgaben in Lücken legen ────────────────────────────────
-    def key(t: Any) -> Tuple[int, int, date, int]:
+    def key(t: Any) -> tuple[int, int, date, int]:
         c = getattr(t.constraint, "value", t.constraint)
         return (0 if c != "FLOAT" else 1, t.priority, t.due or date.max, t.id or 0)
 
@@ -159,12 +196,19 @@ def build_day_plan(
         placed = False
         for i, (a, b) in enumerate(slots):
             if b - a >= need:
-                rows.append(PlanRow(
-                    a.isoformat(timespec="minutes"), (a + need).isoformat(timespec="minutes"),
-                    t.title, c if c != "HARD" else "SOFT", t.domain,
-                    f"FraPP-Aufgabe #{t.id} ({t.source})",
-                    getattr(t.certainty, "value", t.certainty), "Vorschlag (ASSUMPTION)", f"task:{t.id}",
-                ))
+                rows.append(
+                    PlanRow(
+                        a.isoformat(timespec="minutes"),
+                        (a + need).isoformat(timespec="minutes"),
+                        t.title,
+                        c if c != "HARD" else "SOFT",
+                        t.domain,
+                        f"FraPP-Aufgabe #{t.id} ({t.source})",
+                        getattr(t.certainty, "value", t.certainty),
+                        "Vorschlag (ASSUMPTION)",
+                        f"task:{t.id}",
+                    )
+                )
                 slots[i] = (a + need, b)
                 placed = True
                 break
@@ -172,23 +216,44 @@ def build_day_plan(
             reason = "keine ausreichend große Lücke im Tagesfenster"
             if c == "HARD":
                 reason = "HARD ohne feste Uhrzeit — bitte Uhrzeit setzen"
-            unplaced.append({"ref": f"task:{t.id}", "title": t.title, "duration_min": t.duration_min,
-                             "constraint": c, "reason": reason})
+            unplaced.append(
+                {
+                    "ref": f"task:{t.id}",
+                    "title": t.title,
+                    "duration_min": t.duration_min,
+                    "constraint": c,
+                    "reason": reason,
+                }
+            )
 
     rows.sort(key=lambda r: (r.start is not None, r.start or ""))
 
     # ── Truth-Gate ───────────────────────────────────────────────────────
     gate = [
-        {"source": "Zeitbasis", "status": "VERIFIED" if stamp.verified else "UNVERIFIED",
-         "detail": stamp.method},
-        {"source": "FraPP-Kalender", "status": "VERIFIED" if day_events else "EMPTY-BUT-VERIFIED",
-         "detail": f"{len(day_events)} Termin(e) am {day.isoformat()} in der FraPP-Datenbank"},
-        {"source": "FraPP-Aufgaben", "status": "VERIFIED" if open_tasks else "EMPTY-BUT-VERIFIED",
-         "detail": f"{len(open_tasks)} offene Aufgabe(n) für diesen Tag"},
+        {
+            "source": "Zeitbasis",
+            "status": "VERIFIED" if stamp.verified else "UNVERIFIED",
+            "detail": stamp.method,
+        },
+        {
+            "source": "FraPP-Kalender",
+            "status": "VERIFIED" if day_events else "EMPTY-BUT-VERIFIED",
+            "detail": f"{len(day_events)} Termin(e) am {day.isoformat()} in der FraPP-Datenbank",
+        },
+        {
+            "source": "FraPP-Aufgaben",
+            "status": "VERIFIED" if open_tasks else "EMPTY-BUT-VERIFIED",
+            "detail": f"{len(open_tasks)} offene Aufgabe(n) für diesen Tag",
+        },
     ]
     for name, status in (external or {}).items():
-        gate.append({"source": name, "status": "UNVERIFIED",
-                     "detail": f"{status} — keine Aussage über Termine aus dieser Quelle"})
+        gate.append(
+            {
+                "source": name,
+                "status": "UNVERIFIED",
+                "detail": f"{status} — keine Aussage über Termine aus dieser Quelle",
+            }
+        )
 
     free = sum(int((b - a).total_seconds() // 60) for a, b in slots)
     return DayPlan(day.isoformat(), stamp.to_dict(), gate, rows, unplaced, conflicts, free)

@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
-from godai.modules.athena import LLMProvider
-from godai.modules.mnemosyne import Mnemosyne
 from godai.pipeline import GodaiPipeline
-
 
 # ---------------------------------------------------------------------------
 # Test LLM provider
@@ -39,12 +35,17 @@ class MockProvider:
         self._validation_confidence = validation_confidence
         self.calls: list[dict[str, Any]] = []
 
-    async def generate(self, model_id: str, prompt: str, context: Dict[str, Any]) -> str:
+    async def generate(self, model_id: str, prompt: str, context: dict[str, Any]) -> str:
         self.calls.append({"model_id": model_id, "prompt": prompt})
         if self._fail_generation:
             raise RuntimeError("Simulated LLM failure")
         # If this is a validation call (contains "validator" keywords), return verdict
-        if "validator" in prompt.lower() or "quality" in prompt.lower() or "fact" in prompt.lower() or "policy" in prompt.lower():
+        if (
+            "validator" in prompt.lower()
+            or "quality" in prompt.lower()
+            or "fact" in prompt.lower()
+            or "policy" in prompt.lower()
+        ):
             return (
                 f'{{"verdict": "{self._validation_verdict}", '
                 f'"confidence": {self._validation_confidence}, "issues": []}}'
@@ -236,7 +237,9 @@ async def test_rate_limit_returns_failure() -> None:
     for _ in range(2):
         await pipeline.process(token="basic-tok123456", user_id="u", protocol="http", query="q")
 
-    result = await pipeline.process(token="basic-tok123456", user_id="u", protocol="http", query="q")
+    result = await pipeline.process(
+        token="basic-tok123456", user_id="u", protocol="http", query="q"
+    )
     assert result.success is False
     assert "429" in result.error or "Rate limit" in result.error or "rate" in result.error.lower()
 

@@ -26,9 +26,21 @@ def test_outline_requires_bible(project):
 
 
 def test_full_pipeline_with_revision(project):
-    bad = {"score": 50, "summary": "schwach", "strengths": [], "checklist": [],
-           "issues": [{"severity": "blocker", "category": "Bible", "quote": "q",
-                       "problem": "Mila ist 17", "fix": "Alter 16"}]}
+    bad = {
+        "score": 50,
+        "summary": "schwach",
+        "strengths": [],
+        "checklist": [],
+        "issues": [
+            {
+                "severity": "blocker",
+                "category": "Bible",
+                "quote": "q",
+                "problem": "Mila ist 17",
+                "fix": "Alter 16",
+            }
+        ],
+    }
     llm = make_llm(n_chapters=3, reviews=[bad])
     gw = Ghostwriter(llm)
     gw.develop_bible(project, notes="Serie geplant")
@@ -51,7 +63,7 @@ def test_full_pipeline_with_revision(project):
     draft2 = [c for c in llm.calls if c["role"] == "draft"][1]["prompt"]
     assert "Zusammenfassung." in draft2  # Kontinuität: Vorkapitel-Summary
     assert "ENDE DES VORKAPITELS" in draft2
-    assert "BIBLE" in [c for c in llm.calls if c["role"] == "draft"][0]["system"]
+    assert "BIBLE" in next(c for c in llm.calls if c["role"] == "draft")["system"]
 
     st = project.status()
     assert st["words_total"] > 0 and st["audit_chain_ok"]

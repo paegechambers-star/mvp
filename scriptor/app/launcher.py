@@ -22,7 +22,7 @@ import time
 import traceback
 import webbrowser
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from scriptor.runtime import Runtime
 from scriptor.settings import config_dir
@@ -34,7 +34,7 @@ def log_path() -> Path:
     return config_dir() / "scriptor.log"
 
 
-def ensure_streams() -> Optional[Path]:
+def ensure_streams() -> Path | None:
     """Leitet fehlende Standardströme (pythonw) in die Logdatei um. Gibt den Pfad zurück."""
     if sys.stdout is not None and sys.stderr is not None:
         return None
@@ -56,7 +56,7 @@ def _show_error(message: str) -> None:
             import ctypes
 
             ctypes.windll.user32.MessageBoxW(None, message, "SCRIPTOR – Fehler", 0x10)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: S110 - Meldungsfenster ist best effort, Text steht schon im Log
             pass
 
 
@@ -70,7 +70,7 @@ def start_server(
     rt: Runtime,
     port: int = 0,
     asgi: Any = None,
-    token: Optional[str] = None,
+    token: str | None = None,
     path: str = "/",
 ) -> tuple[Any, str]:
     """
@@ -94,12 +94,12 @@ def start_server(
     # use_colors=False: uvicorn ruft sonst sys.stdout.isatty() auf (Absturz unter pythonw)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", use_colors=False)
     server = uvicorn.Server(config)
-    errors: List[BaseException] = []
+    errors: list[BaseException] = []
 
     def run() -> None:
         try:
             server.run()
-        except BaseException as exc:  # noqa: BLE001 - an den Aufrufer melden
+        except BaseException as exc:
             errors.append(exc)
 
     thread = threading.Thread(target=run, name="scriptor-server", daemon=True)
@@ -123,7 +123,7 @@ def _open_window(url: str, title: str = "SCRIPTOR") -> bool:
         webview.create_window(title, url, width=1400, height=900, min_size=(900, 600))
         webview.start()
         return True
-    except Exception:  # noqa: BLE001 - z. B. WebView2/pythonnet fehlt
+    except Exception:
         print("Fenster nicht möglich, öffne Browser:\n" + traceback.format_exc(), file=sys.stderr)
         return False
 
@@ -133,14 +133,14 @@ def launch(
     port: int = 0,
     prefer_window: bool = True,
     asgi: Any = None,
-    token: Optional[str] = None,
+    token: str | None = None,
     path: str = "/",
     title: str = "SCRIPTOR",
 ) -> None:
     logfile = ensure_streams()
     try:
         server, url = start_server(rt, port, asgi=asgi, token=token, path=path)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         traceback.print_exc()
         hint = f"\n\nDetails: {logfile}" if logfile else ""
         _show_error(f"{title} konnte nicht starten.\n\n{exc}{hint}")

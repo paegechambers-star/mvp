@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-
 _DEFAULT_BASE: Path = Path.home() / ".frapp" / "contextos"
 
 

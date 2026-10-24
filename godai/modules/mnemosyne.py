@@ -15,9 +15,8 @@ import hashlib
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 from uuid import UUID, uuid4
 
 from godai.models.audit import AuditEvent, LogEntry
@@ -60,10 +59,10 @@ class Mnemosyne:
         mnemosyne = Mnemosyne(db_path=Path("data/mnemosyne.db"))
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
-        self._entries: List[LogEntry] = []
+    def __init__(self, db_path: Path | None = None) -> None:
+        self._entries: list[LogEntry] = []
         self._lock: asyncio.Lock = asyncio.Lock()
-        self._db_path: Optional[Path] = db_path
+        self._db_path: Path | None = db_path
         if db_path is not None:
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._init_db()
@@ -92,16 +91,18 @@ class Mnemosyne:
             ).fetchall()
         for row in rows:
             eid, etype, src, ts, edata, h, ph, idx = row
-            self._entries.append(LogEntry(
-                event_id=UUID(eid),
-                event_type=etype,
-                event_data=json.loads(edata),
-                source_module=src,
-                timestamp=datetime.fromisoformat(ts),
-                hash=h,
-                prev_hash=ph,
-                chain_index=idx,
-            ))
+            self._entries.append(
+                LogEntry(
+                    event_id=UUID(eid),
+                    event_type=etype,
+                    event_data=json.loads(edata),
+                    source_module=src,
+                    timestamp=datetime.fromisoformat(ts),
+                    hash=h,
+                    prev_hash=ph,
+                    chain_index=idx,
+                )
+            )
 
     def _persist(self, entry: LogEntry) -> None:
         if self._db_path is None:
@@ -130,7 +131,7 @@ class Mnemosyne:
     @staticmethod
     def _compute_hash(event_data: dict, prev_hash: str) -> str:  # type: ignore[type-arg]
         payload = json.dumps(event_data, sort_keys=True, default=str)
-        raw = f"{payload}{prev_hash}".encode("utf-8")
+        raw = f"{payload}{prev_hash}".encode()
         return hashlib.sha256(raw).hexdigest()
 
     # ------------------------------------------------------------------
@@ -204,7 +205,7 @@ class Mnemosyne:
         return True
 
     @property
-    def entries(self) -> List[LogEntry]:
+    def entries(self) -> list[LogEntry]:
         """Read-only snapshot of all log entries."""
         return list(self._entries)
 

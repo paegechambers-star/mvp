@@ -19,8 +19,8 @@ from contextos.id_generator import (
 )
 from contextos.types import Actor, Cluster, EntryType, Kind, TruthGate
 
-
 # ─────────────────────────────── encode / decode ──────────────────────────────
+
 
 def test_encode_b36_zero():
     assert encode_b36(0) == "00"
@@ -47,6 +47,7 @@ def test_decode_b36_invalid_char_raises():
 
 # ─────────────────────────────── checksum ────────────────────────────────────
 
+
 def test_compute_checksum_length():
     prefix = "NK" + "00" + "00" + "00" + "00" + "00" + "00"
     assert len(prefix) == 14
@@ -69,10 +70,16 @@ def test_compute_checksum_wrong_length_raises():
 
 # ─────────────────────────────── validate_id ──────────────────────────────────
 
+
 def test_validate_id_accepts_valid():
     id_str = generate_id(
-        Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-        TruthGate.UNVERIFIED, time_bucket="00", sequence=0,
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
     )
     assert validate_id(id_str) is True
 
@@ -83,8 +90,13 @@ def test_validate_id_rejects_wrong_length():
 
 def test_validate_id_rejects_bad_checksum():
     id_str = generate_id(
-        Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-        TruthGate.UNVERIFIED, time_bucket="00", sequence=1,
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=1,
     )
     # Corrupt last character
     bad = id_str[:-1] + ("A" if id_str[-1] != "A" else "B")
@@ -97,9 +109,13 @@ def test_validate_id_rejects_non_string():
 
 # ─────────────────────────────── parse_id ────────────────────────────────────
 
+
 def test_parse_id_roundtrip():
     id_str = generate_id(
-        Kind.MK, Actor.ADMIN, Cluster.COMPLIANCE, EntryType.DECISION,
+        Kind.MK,
+        Actor.ADMIN,
+        Cluster.COMPLIANCE,
+        EntryType.DECISION,
         TruthGate.SINGLE_SOURCE,
         time_bucket="01",
         sequence=5,
@@ -121,39 +137,88 @@ def test_parse_id_invalid_raises():
 
 # ─────────────────────────────── generate_id ──────────────────────────────────
 
+
 def test_generate_id_is_16_chars():
     id_str = generate_id(
-        Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-        TruthGate.UNVERIFIED, time_bucket="00", sequence=0,
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
     )
     assert len(id_str) == 16
 
 
 def test_generate_id_deterministic():
-    a = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="0A", sequence=7)
-    b = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="0A", sequence=7)
+    a = generate_id(
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="0A",
+        sequence=7,
+    )
+    b = generate_id(
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="0A",
+        sequence=7,
+    )
     assert a == b
 
 
 def test_generate_id_different_actors_differ():
-    a = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="00", sequence=0)
-    b = generate_id(Kind.NK, Actor.ADMIN, Cluster.GENERAL, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="00", sequence=0)
+    a = generate_id(
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
+    )
+    b = generate_id(
+        Kind.NK,
+        Actor.ADMIN,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
+    )
     assert a != b
 
 
 def test_generate_id_different_clusters_differ():
-    a = generate_id(Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="00", sequence=0)
-    b = generate_id(Kind.NK, Actor.USER, Cluster.RESEARCH, EntryType.FACT,
-                    TruthGate.UNVERIFIED, time_bucket="00", sequence=0)
+    a = generate_id(
+        Kind.NK,
+        Actor.USER,
+        Cluster.GENERAL,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
+    )
+    b = generate_id(
+        Kind.NK,
+        Actor.USER,
+        Cluster.RESEARCH,
+        EntryType.FACT,
+        TruthGate.UNVERIFIED,
+        time_bucket="00",
+        sequence=0,
+    )
     assert a != b
 
 
 # ─────────────────────────────── encode_time_bucket ───────────────────────────
+
 
 def test_encode_time_bucket_returns_2_chars():
     tb = encode_time_bucket()
@@ -163,11 +228,13 @@ def test_encode_time_bucket_returns_2_chars():
 
 def test_encode_time_bucket_deterministic_for_same_ts():
     from datetime import datetime, timezone
+
     ts = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
     assert encode_time_bucket(ts) == encode_time_bucket(ts)
 
 
 # ─────────────────────────────── next_sequence ────────────────────────────────
+
 
 def test_next_sequence_increments(tmp_path: Path):
     db = tmp_path / "seq.db"
@@ -180,12 +247,13 @@ def test_next_sequence_wraps_at_1296(tmp_path: Path):
     db = tmp_path / "seq.db"
     # Force counter to 1295
     import sqlite3
+
     conn = sqlite3.connect(str(db))
     conn.execute("CREATE TABLE IF NOT EXISTS _seq (val INTEGER NOT NULL DEFAULT 0)")
     conn.execute("INSERT OR REPLACE INTO _seq VALUES (1294)")
     conn.commit()
     conn.close()
-    v1 = next_sequence(db)   # → 1295
-    v2 = next_sequence(db)   # → 0 (wrap)
+    v1 = next_sequence(db)  # → 1295
+    v2 = next_sequence(db)  # → 0 (wrap)
     assert v1 == 1295
     assert v2 == 0

@@ -31,8 +31,12 @@ def test_token_enforced_when_mounted():
     """Regression: unter /scriptor enthält scope['path'] das Präfix."""
     client, token = _client()
     assert client.get("/scriptor/api/info").status_code == 401
-    assert client.get("/scriptor/api/books", headers={"X-Scriptor-Token": "falsch"}).status_code == 401
-    assert client.get("/scriptor/api/governance", headers={"X-Scriptor-Token": token}).json()["active"]
+    assert (
+        client.get("/scriptor/api/books", headers={"X-Scriptor-Token": "falsch"}).status_code == 401
+    )
+    assert client.get("/scriptor/api/governance", headers={"X-Scriptor-Token": token}).json()[
+        "active"
+    ]
 
 
 def test_failing_dock_does_not_break_frapp(monkeypatch):
@@ -51,8 +55,12 @@ def test_failing_dock_does_not_break_frapp(monkeypatch):
 
 
 def test_frapp_cli_includes_scriptor():
-    out = subprocess.run([sys.executable, "-m", "frapp.cli", "scriptor", "genres"],
-                         capture_output=True, text=True, timeout=60)
+    out = subprocess.run(
+        [sys.executable, "-m", "frapp.cli", "scriptor", "genres"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert out.returncode == 0, out.stderr
     assert "young_adult" in out.stdout
 
@@ -61,12 +69,18 @@ def test_desktop_server_serves_frapp_with_scriptor(tmp_path):
     from scriptor.app.launcher import start_server
 
     scriptor = next(d for d in DOCKS if d.name == "scriptor")
-    server, url = start_server(scriptor.runtime, asgi=frapp_app, token=scriptor.token, path="/scriptor/")
+    server, url = start_server(
+        scriptor.runtime, asgi=frapp_app, token=scriptor.token, path="/scriptor/"
+    )
     try:
         assert "/scriptor/#token=" in url
         base = url.split("/scriptor/")[0]
         assert httpx.get(base + "/healthz").json()["status"] == "ok"
-        assert httpx.get(base + "/scriptor/api/info",
-                         headers={"X-Scriptor-Token": scriptor.token}).status_code == 200
+        assert (
+            httpx.get(
+                base + "/scriptor/api/info", headers={"X-Scriptor-Token": scriptor.token}
+            ).status_code
+            == 200
+        )
     finally:
         server.should_exit = True

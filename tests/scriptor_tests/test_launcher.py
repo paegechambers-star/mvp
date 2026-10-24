@@ -47,5 +47,7 @@ def test_window_failure_falls_back(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("WebView2 fehlt")
 
-    monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(create_window=boom, start=boom))
+    monkeypatch.setitem(
+        sys.modules, "webview", types.SimpleNamespace(create_window=boom, start=boom)
+    )
     assert launcher._open_window("http://127.0.0.1:1/") is False

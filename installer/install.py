@@ -10,33 +10,32 @@ Starten:
 
 Benötigt nur Python 3.10+ — alles weitere wird automatisch installiert.
 """
+
 from __future__ import annotations
 
 import os
-import sys
-import subprocess
-import time
-import shutil
-import secrets
 import platform
-import textwrap
+import secrets
+import shutil
+import subprocess
+import sys
+import time
 from pathlib import Path
-from typing import Optional
 
 # ── Farben ────────────────────────────────────────────────────────────────────
 R = "\033[0m"
 BOLD = "\033[1m"
-DIM  = "\033[2m"
-B    = "\033[94m"   # blau
-C    = "\033[96m"   # cyan
-G    = "\033[92m"   # grün
-Y    = "\033[93m"   # gelb
-RED  = "\033[91m"   # rot
-M    = "\033[95m"   # magenta
+DIM = "\033[2m"
+B = "\033[94m"  # blau
+C = "\033[96m"  # cyan
+G = "\033[92m"  # grün
+Y = "\033[93m"  # gelb
+RED = "\033[91m"  # rot
+M = "\033[95m"  # magenta
 
 # ── Installer-Root ────────────────────────────────────────────────────────────
 INSTALLER_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT  = INSTALLER_DIR.parent
+PROJECT_ROOT = INSTALLER_DIR.parent
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ LOGO = f"""
 """
 
 SEPARATOR = f"{C}{'═' * 62}{R}"
-THIN_SEP  = f"{DIM}{'─' * 62}{R}"
+THIN_SEP = f"{DIM}{'─' * 62}{R}"
 
 
 def clear():
@@ -135,8 +134,12 @@ def bye():
 
 def run(cmd: str, cwd: Path = PROJECT_ROOT, capture: bool = True) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, shell=True, cwd=str(cwd),
-        capture_output=capture, text=True,
+        cmd,
+        check=False,
+        shell=True,
+        cwd=str(cwd),
+        capture_output=capture,
+        text=True,
     )
     return result.returncode, result.stdout + result.stderr
 
@@ -155,6 +158,7 @@ def progress_run(label: str, cmd: str, n: int, total: int) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # SCREENS
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def screen_welcome():
     clear()
@@ -209,9 +213,9 @@ def screen_install_type() -> str:
     idx = choose(
         "Welche Installation möchtest du?",
         [
-            ("Schnell",      "Alles mit sinnvollen Standardwerten (empfohlen)"),
+            ("Schnell", "Alles mit sinnvollen Standardwerten (empfohlen)"),
             ("Benutzerdefiniert", "Port, Datenbank, API-Key selbst wählen"),
-            ("Entwickler",   "Dev-Modus, hot-reload, EchoProvider"),
+            ("Entwickler", "Dev-Modus, hot-reload, EchoProvider"),
         ],
         default=0,
     )
@@ -232,8 +236,8 @@ def screen_configure(mode: str) -> dict:
         }
         ok(f"Port          : {config['port']}")
         ok(f"API-Key       : {config['api_key'][:16]}… (generiert)")
-        ok(f"Datenbank     : SQLite (lokal)")
-        ok(f"Modus         : Produktion")
+        ok("Datenbank     : SQLite (lokal)")
+        ok("Modus         : Produktion")
 
     elif mode == "dev":
         config = {
@@ -249,18 +253,20 @@ def screen_configure(mode: str) -> dict:
     else:  # custom
         print(f"  {DIM}Enter drücken für Standardwert{R}\n")
         config = {
-            "port":       ask("Port", "8000"),
-            "api_key":    ask("API-Key (leer = generieren)", "") or secrets.token_urlsafe(24),
+            "port": ask("Port", "8000"),
+            "api_key": ask("API-Key (leer = generieren)", "") or secrets.token_urlsafe(24),
             "secret_key": ask("Secret-Key (leer = generieren)", "") or secrets.token_urlsafe(32),
-            "env":        "production",
-            "log_level":  "INFO",
-            "database":   "sqlite",
+            "env": "production",
+            "log_level": "INFO",
+            "database": "sqlite",
         }
 
         db_idx = choose(
             "Datenbank:",
-            [("SQLite", "lokal, kein Server nötig (Standard)"),
-             ("PostgreSQL", "Produktions-DB, DATABASE_URL eingeben")],
+            [
+                ("SQLite", "lokal, kein Server nötig (Standard)"),
+                ("PostgreSQL", "Produktions-DB, DATABASE_URL eingeben"),
+            ],
             default=0,
         )
         if db_idx == 1:
@@ -282,12 +288,18 @@ def screen_install_deps(config: dict) -> bool:
 
     total = 6
     tasks = [
-        ("FastAPI + Uvicorn",    "pip install fastapi uvicorn[standard] sqlmodel pydantic-settings -q"),
-        ("Datenbank-Tools",      "pip install alembic psycopg2-binary -q"),
-        ("G.O.D.A.I. Core",     "pip install pyyaml networkx anthropic -q"),
-        ("Observability",        "pip install structlog prometheus-fastapi-instrumentator prometheus-client -q"),
-        ("Rate Limiting",        "pip install slowapi redis limits -q"),
-        ("FraPP installieren",   f"pip install -e {str(PROJECT_ROOT)} -q"),
+        (
+            "FastAPI + Uvicorn",
+            "pip install fastapi uvicorn[standard] sqlmodel pydantic-settings -q",
+        ),
+        ("Datenbank-Tools", "pip install alembic psycopg2-binary -q"),
+        ("G.O.D.A.I. Core", "pip install pyyaml networkx anthropic -q"),
+        (
+            "Observability",
+            "pip install structlog prometheus-fastapi-instrumentator prometheus-client -q",
+        ),
+        ("Rate Limiting", "pip install slowapi redis limits -q"),
+        ("FraPP installieren", f"pip install -e {PROJECT_ROOT!s} -q"),
     ]
 
     all_ok = True
@@ -336,21 +348,21 @@ TIMEZONE=Europe/Berlin
     if env_path.exists():
         backup = env_path.with_suffix(".env.backup")
         shutil.copy(env_path, backup)
-        warn(f"Bestehende .env gesichert → .env.backup")
+        warn("Bestehende .env gesichert → .env.backup")
 
     env_path.write_text(env_content)
     ok(f".env geschrieben → {env_path}")
 
     # DB Migration
     info("Führe Datenbank-Migration aus …")
-    code, out = run("python -m alembic upgrade head", cwd=PROJECT_ROOT)
+    code, _out = run("python -m alembic upgrade head", cwd=PROJECT_ROOT)
     if code == 0:
         ok("Datenbank-Migrationen erfolgreich")
     else:
         # Fallback: direkte DB-Initialisierung
         code2, _ = run(
             "python -c \"import sys; sys.path.insert(0,'src'); "
-            "from frapp.db import init_db; init_db()\"",
+            'from frapp.db import init_db; init_db()"',
             cwd=PROJECT_ROOT,
         )
         if code2 == 0:
@@ -365,15 +377,15 @@ def screen_verify():
     hdr("Schritt 6 / 6 — Verifikation")
 
     info("Starte Schnelltest …")
-    code, out = run(
-        "python -c \""
+    code, _out = run(
+        'python -c "'
         "import sys; sys.path.insert(0,'src'); sys.path.insert(0,'.')\n"
         "from fastapi.testclient import TestClient\n"
         "from frapp.api import app\n"
         "c = TestClient(app)\n"
         "assert c.get('/healthz/live').status_code == 200\n"
         "print('OK')\n"
-        "\"",
+        '"',
         cwd=PROJECT_ROOT,
     )
 
@@ -453,8 +465,17 @@ def screen_success(config: dict):
         os.chdir(str(PROJECT_ROOT))
         os.execvp(
             sys.executable,
-            [sys.executable, "-m", "uvicorn", "frapp.api:app",
-             "--host", "0.0.0.0", "--port", port, "--reload"],
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "frapp.api:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                port,
+                "--reload",
+            ],
         )
 
 
@@ -462,11 +483,12 @@ def screen_success(config: dict):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     try:
         screen_welcome()
         screen_check_python()
-        mode   = screen_install_type()
+        mode = screen_install_type()
         config = screen_configure(mode)
 
         if not screen_install_deps(config):

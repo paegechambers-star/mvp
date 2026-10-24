@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import typer
 
@@ -28,15 +28,18 @@ from scriptor.settings import Settings, api_key_status, set_api_key
 
 app = typer.Typer(help="SCRIPTOR — KI-Ghostwriter & Arbeitsagent", no_args_is_help=True)
 
-_state: Dict[str, Any] = {"runtime": None}
+_state: dict[str, Any] = {"runtime": None}
 
 
 @app.callback()
 def _main(
-    workspace: Optional[Path] = typer.Option(
-        None, "--workspace", "-w", help="Workspace-Ordner (Default: Einstellungen bzw. Dokumente/Scriptor)"
+    workspace: Path | None = typer.Option(
+        None,
+        "--workspace",
+        "-w",
+        help="Workspace-Ordner (Default: Einstellungen bzw. Dokumente/Scriptor)",
     ),
-    model: Optional[str] = typer.Option(None, "--model", help="Claude-Modell-ID"),
+    model: str | None = typer.Option(None, "--model", help="Claude-Modell-ID"),
 ) -> None:
     rt = _rt()
     if workspace is not None:
@@ -115,18 +118,22 @@ def status(slug: str) -> None:
     """Fortschritt, Scores und Wortzahlen."""
     s = _book(slug).status()
     typer.echo(f"{s['title']} — {s['genre']}")
-    typer.echo(f"Bible: {'ja' if s['has_bible'] else 'nein'}  Outline: {'ja' if s['has_outline'] else 'nein'}  "
-               f"Audit-Kette: {'OK' if s['audit_chain_ok'] else 'GEBROCHEN'}")
+    typer.echo(
+        f"Bible: {'ja' if s['has_bible'] else 'nein'}  Outline: {'ja' if s['has_outline'] else 'nein'}  "
+        f"Audit-Kette: {'OK' if s['audit_chain_ok'] else 'GEBROCHEN'}"
+    )
     for c in s["chapters"]:
         verdict = c["verdict"] or "—"
-        typer.echo(f"  {c['nr']:>3}. {c['title'][:40]:<40} v{c['version']}  "
-                   f"{c['words']:>6}/{c['target'] or '?':<6} {verdict:<7} {c['score'] or ''}")
+        typer.echo(
+            f"  {c['nr']:>3}. {c['title'][:40]:<40} v{c['version']}  "
+            f"{c['words']:>6}/{c['target'] or '?':<6} {verdict:<7} {c['score'] or ''}"
+        )
     t = s["words_target"]
     typer.echo(f"Gesamt: {s['words_total']} Wörter (Ziel {t['min']}–{t['max']})")
 
 
 @app.command()
-def source(slug: str, files: List[Path]) -> None:
+def source(slug: str, files: list[Path]) -> None:
     """Quellen / Interviewnotizen (txt, md) ins SSOT übernehmen."""
     p = _book(slug)
     for f in files:
@@ -136,7 +143,7 @@ def source(slug: str, files: List[Path]) -> None:
 @app.command()
 def voice(
     slug: str,
-    samples: List[Path],
+    samples: list[Path],
     describe: bool = typer.Option(True, help="Zusätzlich Stilbeschreibung per Claude"),
 ) -> None:
     """Voice-Profil aus Textproben der Autorin/des Autors lernen."""
@@ -160,7 +167,7 @@ def bible(slug: str, notes: str = typer.Option("", "--notes", "-n")) -> None:
 
 
 @app.command()
-def outline(slug: str, chapters: Optional[int] = typer.Option(None, "--chapters", "-c")) -> None:
+def outline(slug: str, chapters: int | None = typer.Option(None, "--chapters", "-c")) -> None:
     """Kapitelplan erstellen."""
     p = _book(slug)
     rid = _run(Ghostwriter(_llm()).develop_outline, p, chapters)
@@ -190,7 +197,9 @@ def review(slug: str, nr: int) -> None:
 
 
 @app.command()
-def revise(slug: str, nr: int, instructions: str = typer.Option("", "--instructions", "-i")) -> None:
+def revise(
+    slug: str, nr: int, instructions: str = typer.Option("", "--instructions", "-i")
+) -> None:
     """Kapitel anhand des Lektorats überarbeiten."""
     v = _run(Ghostwriter(_llm()).revise_chapter, _book(slug), nr, instructions)
     typer.echo(f"Kapitel {nr} v{v} überarbeitet")
@@ -200,8 +209,8 @@ def revise(slug: str, nr: int, instructions: str = typer.Option("", "--instructi
 def write_book(
     slug: str,
     start: int = typer.Option(1, "--start"),
-    end: Optional[int] = typer.Option(None, "--end"),
-    revisions: Optional[int] = typer.Option(None, "--revisions", help="Max. Revisionsrunden"),
+    end: int | None = typer.Option(None, "--end"),
+    revisions: int | None = typer.Option(None, "--revisions", help="Max. Revisionsrunden"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Ohne Rückfrage starten"),
 ) -> None:
     """Komplettlauf: Entwurf → Lektorat → Revision bis PASS oder Limit."""
@@ -253,18 +262,25 @@ def audit_verify() -> None:
 def _make_agent(web: bool, yes: bool) -> Any:
     from scriptor.agent import Agent
 
-    def approve(name: str, args: Dict[str, Any]) -> bool:
+    def approve(name: str, args: dict[str, Any]) -> bool:
         if yes:
             return True
-        return bool(typer.confirm(f"Werkzeug {name} {json.dumps(args, ensure_ascii=False)} ausführen?"))
+        return bool(
+            typer.confirm(f"Werkzeug {name} {json.dumps(args, ensure_ascii=False)} ausführen?")
+        )
 
     def on_event(kind: str, text: str) -> None:
         if kind == "tool":
             typer.secho(f"  → {text}", fg="cyan")
 
     return Agent(
-        _llm(), _ws(), approve=approve, web_search=web or _rt().settings.web_search,
-        config=load_config(), on_event=on_event, docks=_rt().docks,
+        _llm(),
+        _ws(),
+        approve=approve,
+        web_search=web or _rt().settings.web_search,
+        config=load_config(),
+        on_event=on_event,
+        docks=_rt().docks,
     )
 
 
@@ -300,7 +316,9 @@ def chat(
 @app.command("app")
 def run_app(
     port: int = typer.Option(0, help="Port (0 = frei wählen)"),
-    browser: bool = typer.Option(False, "--browser", help="Im Browser statt eigenem Fenster öffnen"),
+    browser: bool = typer.Option(
+        False, "--browser", help="Im Browser statt eigenem Fenster öffnen"
+    ),
 ) -> None:
     """Desktop-App starten (eigenes Fenster bzw. Browser)."""
     from scriptor.app.launcher import launch
@@ -322,11 +340,11 @@ def docks() -> None:
 
 @app.command("config")
 def config_cmd(
-    workspace: Optional[Path] = typer.Option(None, "--set-workspace"),
-    model: Optional[str] = typer.Option(None, "--set-model"),
-    api_key: Optional[str] = typer.Option(None, "--set-api-key", help="Im OS-Tresor speichern"),
-    enable_plugin: Optional[str] = typer.Option(None, "--enable-plugin"),
-    disable_plugin: Optional[str] = typer.Option(None, "--disable-plugin"),
+    workspace: Path | None = typer.Option(None, "--set-workspace"),
+    model: str | None = typer.Option(None, "--set-model"),
+    api_key: str | None = typer.Option(None, "--set-api-key", help="Im OS-Tresor speichern"),
+    enable_plugin: str | None = typer.Option(None, "--enable-plugin"),
+    disable_plugin: str | None = typer.Option(None, "--disable-plugin"),
 ) -> None:
     """Einstellungen anzeigen / ändern."""
     s = Settings.load()
@@ -339,7 +357,9 @@ def config_cmd(
     if disable_plugin and disable_plugin in s.enabled_plugins:
         s.enabled_plugins.remove(disable_plugin)
     if api_key is not None and not set_api_key(api_key):
-        typer.secho("Kein OS-Tresor verfügbar (pip install keyring) — nutze ANTHROPIC_API_KEY.", fg="yellow")
+        typer.secho(
+            "Kein OS-Tresor verfügbar (pip install keyring) — nutze ANTHROPIC_API_KEY.", fg="yellow"
+        )
     s.save()
     typer.echo(f"Einstellungen: {Settings.path()}")
     typer.echo(f"Workspace:     {s.workspace_path()}")

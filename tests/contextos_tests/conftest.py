@@ -19,7 +19,6 @@ from contextos.resolver import Resolver
 from contextos.store import sha256_of
 from contextos.types import (
     Actor,
-    Citation,
     Cluster,
     EntryType,
     Kind,
@@ -69,30 +68,31 @@ def resolver(register: Register, index: ContextOSIndex) -> Resolver:
 
 # ─────────────────────────────── Factories ───────────────────────────────────
 
-def make_nkid(seq: int = 0, seq_db: Path = None, **kwargs) -> str:  # type: ignore[assignment]
-    defaults = dict(
-        kind=Kind.NK,
-        actor=Actor.USER,
-        cluster=Cluster.GENERAL,
-        entry_type=EntryType.FACT,
-        truth_gate=TruthGate.UNVERIFIED,
-        time_bucket="00",
-        sequence=seq,
-    )
+
+def make_nkid(seq: int = 0, seq_db: Path | None = None, **kwargs) -> str:  # type: ignore[assignment]
+    defaults = {
+        "kind": Kind.NK,
+        "actor": Actor.USER,
+        "cluster": Cluster.GENERAL,
+        "entry_type": EntryType.FACT,
+        "truth_gate": TruthGate.UNVERIFIED,
+        "time_bucket": "00",
+        "sequence": seq,
+    }
     defaults.update(kwargs)
     return generate_id(**defaults)
 
 
 def make_mkid(seq: int = 0, **kwargs) -> str:
-    defaults = dict(
-        kind=Kind.MK,
-        actor=Actor.USER,
-        cluster=Cluster.GENERAL,
-        entry_type=EntryType.ANNOTATION,
-        truth_gate=TruthGate.UNVERIFIED,
-        time_bucket="00",
-        sequence=seq,
-    )
+    defaults = {
+        "kind": Kind.MK,
+        "actor": Actor.USER,
+        "cluster": Cluster.GENERAL,
+        "entry_type": EntryType.ANNOTATION,
+        "truth_gate": TruthGate.UNVERIFIED,
+        "time_bucket": "00",
+        "sequence": seq,
+    }
     defaults.update(kwargs)
     return generate_id(**defaults)
 
@@ -122,7 +122,7 @@ def make_work(
     mkid: str,
     content: str = "draft content",
     truth_gate: TruthGate = TruthGate.UNVERIFIED,
-    citations: list = None,  # type: ignore[assignment]
+    citations: list | None = None,  # type: ignore[assignment]
     cluster: Cluster = Cluster.GENERAL,
     actor: Actor = Actor.USER,
 ) -> WorkEntry:

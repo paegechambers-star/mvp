@@ -26,7 +26,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import yaml
 
@@ -78,7 +78,7 @@ class BookProject:
         idea: str,
         author: str = "",
         language: str = "de",
-    ) -> "BookProject":
+    ) -> BookProject:
         genre = load_genre(genre_id)  # validiert die Buchart
         root = workspace / "books" / slugify(title)
         if root.exists():
@@ -102,11 +102,11 @@ class BookProject:
         return project
 
     @classmethod
-    def load(cls, workspace: Path, slug: str) -> "BookProject":
+    def load(cls, workspace: Path, slug: str) -> BookProject:
         return cls(workspace / "books" / slug)
 
     @staticmethod
-    def list_slugs(workspace: Path) -> List[str]:
+    def list_slugs(workspace: Path) -> list[str]:
         books = workspace / "books"
         if not books.exists():
             return []
@@ -137,7 +137,7 @@ class BookProject:
         self.audit.append("register", {"id": entry_id, "kind": kind, "target": target})
         return entry_id
 
-    def register(self) -> List[Dict[str, Any]]:
+    def register(self) -> list[dict[str, Any]]:
         path = self.root / "register.jsonl"
         if not path.exists():
             return []
@@ -178,11 +178,11 @@ class BookProject:
         return self._register(kind, f"ssot/{name}.yaml", reason, text)
 
     @property
-    def bible(self) -> Dict[str, Any]:
+    def bible(self) -> dict[str, Any]:
         return dict(self.read_ssot("bible") or {})
 
     @property
-    def outline(self) -> List[Dict[str, Any]]:
+    def outline(self) -> list[dict[str, Any]]:
         data = self.read_ssot("outline") or {}
         return list(data.get("chapters", []))
 
@@ -194,7 +194,7 @@ class BookProject:
     def title(self) -> str:
         return str(self.bible["meta"]["title"])
 
-    def chapter_plan(self, nr: int) -> Dict[str, Any]:
+    def chapter_plan(self, nr: int) -> dict[str, Any]:
         for ch in self.outline:
             if int(ch["nr"]) == nr:
                 return ch
@@ -230,7 +230,7 @@ class BookProject:
     # WORK
     # ------------------------------------------------------------------
 
-    def _chapter_versions(self, nr: int) -> List[Tuple[int, Path]]:
+    def _chapter_versions(self, nr: int) -> list[tuple[int, Path]]:
         found = []
         for p in (self.root / "work" / "chapters").glob(f"kap-{nr:02d}.v*.md"):
             m = re.search(r"\.v(\d+)\.md$", p.name)
@@ -238,27 +238,27 @@ class BookProject:
                 found.append((int(m.group(1)), p))
         return sorted(found)
 
-    def latest_chapter(self, nr: int) -> Optional[Tuple[int, str]]:
+    def latest_chapter(self, nr: int) -> tuple[int, str] | None:
         versions = self._chapter_versions(nr)
         if not versions:
             return None
         v, p = versions[-1]
         return v, p.read_text(encoding="utf-8")
 
-    def write_chapter(self, nr: int, text: str, reason: str) -> Tuple[int, str]:
+    def write_chapter(self, nr: int, text: str, reason: str) -> tuple[int, str]:
         latest = self.latest_chapter(nr)
         version = (latest[0] + 1) if latest else 1
         rel = f"work/chapters/kap-{nr:02d}.v{version}.md"
         (self.root / rel).write_text(text, encoding="utf-8")
         return version, self._register("OUTPUT", rel, reason, text)
 
-    def write_review(self, nr: int, version: int, review: Dict[str, Any]) -> str:
+    def write_review(self, nr: int, version: int, review: dict[str, Any]) -> str:
         rel = f"work/reviews/kap-{nr:02d}.v{version}.json"
         text = json.dumps(review, ensure_ascii=False, indent=2)
         (self.root / rel).write_text(text, encoding="utf-8")
         return self._register("OUTPUT", rel, "Lektoratsbericht", text)
 
-    def read_review(self, nr: int, version: int) -> Optional[Dict[str, Any]]:
+    def read_review(self, nr: int, version: int) -> dict[str, Any] | None:
         p = self.root / "work" / "reviews" / f"kap-{nr:02d}.v{version}.json"
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
@@ -273,7 +273,7 @@ class BookProject:
                 parts.append(f"Kapitel {i}: {p.read_text(encoding='utf-8').strip()}")
         return "\n".join(parts)
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         chapters = []
         total = 0
         for ch in self.outline:
@@ -282,15 +282,17 @@ class BookProject:
             words = len(latest[1].split()) if latest else 0
             review = self.read_review(nr, latest[0]) if latest else None
             total += words
-            chapters.append({
-                "nr": nr,
-                "title": ch.get("title", ""),
-                "version": latest[0] if latest else 0,
-                "words": words,
-                "target": ch.get("words_target"),
-                "score": review.get("score") if review else None,
-                "verdict": review.get("verdict") if review else None,
-            })
+            chapters.append(
+                {
+                    "nr": nr,
+                    "title": ch.get("title", ""),
+                    "version": latest[0] if latest else 0,
+                    "words": words,
+                    "target": ch.get("words_target"),
+                    "score": review.get("score") if review else None,
+                    "verdict": review.get("verdict") if review else None,
+                }
+            )
         g = self.genre
         return {
             "title": self.title,

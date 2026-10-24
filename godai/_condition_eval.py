@@ -14,7 +14,7 @@ impossible even if a policy file were tampered with.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict
+from typing import Any
 
 from godai.models.request import DataClass, TrustLevel
 
@@ -24,8 +24,8 @@ def build_eval_context(
     trust_level_value: int,
     action: str,
     explicit_consent: bool,
-    extra: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Build the evaluation context dict passed to the restricted eval.
 
@@ -39,7 +39,7 @@ def build_eval_context(
     Returns:
         Dictionary of variables available inside condition expressions.
     """
-    ctx: Dict[str, Any] = {
+    ctx: dict[str, Any] = {
         "data_class": data_class_value,
         "trust_level": trust_level_value,
         "action": action,
@@ -50,7 +50,7 @@ def build_eval_context(
     return ctx
 
 
-def evaluate_condition(condition: str, context: Dict[str, Any]) -> bool:
+def evaluate_condition(condition: str, context: dict[str, Any]) -> bool:
     """
     Safely evaluate a policy or routing condition expression string.
 
@@ -91,9 +91,7 @@ def evaluate_condition(condition: str, context: Dict[str, Any]) -> bool:
 
     try:
         # builtins stripped — only variable refs and operators available
-        result = eval(expr, {"__builtins__": {}}, context)  # noqa: S307
+        result = eval(expr, {"__builtins__": {}}, context)
         return bool(result)
     except Exception as exc:
-        raise ValueError(
-            f"Cannot evaluate condition {condition!r} → {expr!r}: {exc}"
-        ) from exc
+        raise ValueError(f"Cannot evaluate condition {condition!r} → {expr!r}: {exc}") from exc

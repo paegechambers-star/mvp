@@ -4,9 +4,10 @@ Gemeinsame Laufzeit für CLI und Desktop-App: Einstellungen, Docks, LLM, Governa
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from scriptor.audit import AuditLog
 from scriptor.docks import DockRegistry, discover
@@ -16,13 +17,13 @@ from scriptor.settings import Settings, get_api_key
 LLMFactory = Callable[["Runtime"], LLM]
 
 
-def anthropic_factory(rt: "Runtime") -> LLM:
+def anthropic_factory(rt: Runtime) -> LLM:
     return AnthropicLLM(
         AuditLog(rt.workspace / "audit.jsonl"), model=rt.settings.model, api_key=get_api_key()
     )
 
 
-def _make_governance(settings: Settings) -> Optional[Any]:
+def _make_governance(settings: Settings) -> Any | None:
     """G.O.D.A.I.-Instanz oder None (abgeschaltet bzw. godai nicht installiert)."""
     if not settings.governance:
         return None
@@ -43,7 +44,7 @@ class Runtime:
     settings: Settings
     docks: DockRegistry
     llm_factory: LLMFactory = anthropic_factory
-    governance: Optional[Any] = None
+    governance: Any | None = None
 
     @property
     def workspace(self) -> Path:
@@ -62,10 +63,10 @@ class Runtime:
     @classmethod
     def create(
         cls,
-        settings: Optional[Settings] = None,
+        settings: Settings | None = None,
         llm_factory: LLMFactory = anthropic_factory,
         include_entry_points: bool = True,
-    ) -> "Runtime":
+    ) -> Runtime:
         s = settings or Settings.load()
         docks = discover(
             plugin_dir=s.plugin_dir(),

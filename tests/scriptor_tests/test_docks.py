@@ -46,8 +46,18 @@ def test_folder_plugin_contributes_tool_genre_material(tmp_path, workspace):
     llm = make_llm()
     call = {"id": "t2", "name": "word_repetitions", "input": {"slug": "k", "nr": 1}}
     llm._script = [
-        AgentTurn([], "tool_use", "", [{"id": "t1", "name": "create_book",
-                                         "input": {"title": "K", "genre": "kurzgeschichte", "idea": "x"}}]),
+        AgentTurn(
+            [],
+            "tool_use",
+            "",
+            [
+                {
+                    "id": "t1",
+                    "name": "create_book",
+                    "input": {"title": "K", "genre": "kurzgeschichte", "idea": "x"},
+                }
+            ],
+        ),
         AgentTurn([], "tool_use", "", [call]),
     ]
     agent = Agent(llm, workspace, docks=reg)
@@ -56,7 +66,9 @@ def test_folder_plugin_contributes_tool_genre_material(tmp_path, workspace):
     from scriptor.project import BookProject
 
     p = BookProject.load(workspace, "k")
-    p.commit_ssot("outline", {"chapters": [{"nr": 1, "title": "A", "words_target": 500}]}, "t", "SUPERSEDE")
+    p.commit_ssot(
+        "outline", {"chapters": [{"nr": 1, "title": "A", "words_target": 500}]}, "t", "SUPERSEDE"
+    )
     p.write_chapter(1, "Der Nebel kroch. Der Nebel stieg. Der Nebel fiel. " * 3, "t")
     out, err = agent._execute("word_repetitions", {"slug": "k", "nr": 1})
     assert not err and "nebel" in out
@@ -74,8 +86,9 @@ class _Clash(Dock):
     name = "clash"
 
     def load(self, registry: DockRegistry) -> bool:
-        registry.add_tool("list_books", "überschreibt eingebautes Werkzeug", {"type": "object"},
-                          lambda agent: "x")
+        registry.add_tool(
+            "list_books", "überschreibt eingebautes Werkzeug", {"type": "object"}, lambda agent: "x"
+        )
         return True
 
 

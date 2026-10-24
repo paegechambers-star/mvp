@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -24,7 +24,7 @@ from scriptor.project import BookProject, ProjectError, _dump
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
 
-def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
+def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
     return dict(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
@@ -33,7 +33,7 @@ def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _obj(props: Dict[str, Any]) -> Dict[str, Any]:
+def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "object",
         "properties": props,
@@ -45,66 +45,78 @@ def _obj(props: Dict[str, Any]) -> Dict[str, Any]:
 _STR = {"type": "string"}
 _STRS = {"type": "array", "items": _STR}
 
-BIBLE_SCHEMA = _obj({
-    "logline": _STR,
-    "premise": _STR,
-    "theme": _STR,
-    "tone": _STR,
-    "pov": _STR,
-    "tense": _STR,
-    "setting": _STR,
-    "characters": {
-        "type": "array",
-        "items": _obj({
-            "name": _STR,
-            "role": _STR,
-            "description": _STR,
-            "want": _STR,
-            "need": _STR,
-            "voice": _STR,
-        }),
-    },
-    "rules": _STRS,
-    "series_arc": _STR,
-    "open_questions": _STRS,
-})
+BIBLE_SCHEMA = _obj(
+    {
+        "logline": _STR,
+        "premise": _STR,
+        "theme": _STR,
+        "tone": _STR,
+        "pov": _STR,
+        "tense": _STR,
+        "setting": _STR,
+        "characters": {
+            "type": "array",
+            "items": _obj(
+                {
+                    "name": _STR,
+                    "role": _STR,
+                    "description": _STR,
+                    "want": _STR,
+                    "need": _STR,
+                    "voice": _STR,
+                }
+            ),
+        },
+        "rules": _STRS,
+        "series_arc": _STR,
+        "open_questions": _STRS,
+    }
+)
 
-OUTLINE_SCHEMA = _obj({
-    "chapters": {
-        "type": "array",
-        "items": _obj({
-            "nr": {"type": "integer"},
-            "title": _STR,
-            "beat": _STR,
-            "pov": _STR,
-            "goal": _STR,
-            "conflict": _STR,
-            "outcome": _STR,
-            "summary": _STR,
-            "words_target": {"type": "integer"},
-        }),
-    },
-})
+OUTLINE_SCHEMA = _obj(
+    {
+        "chapters": {
+            "type": "array",
+            "items": _obj(
+                {
+                    "nr": {"type": "integer"},
+                    "title": _STR,
+                    "beat": _STR,
+                    "pov": _STR,
+                    "goal": _STR,
+                    "conflict": _STR,
+                    "outcome": _STR,
+                    "summary": _STR,
+                    "words_target": {"type": "integer"},
+                }
+            ),
+        },
+    }
+)
 
-REVIEW_SCHEMA = _obj({
-    "score": {"type": "integer"},
-    "summary": _STR,
-    "strengths": _STRS,
-    "issues": {
-        "type": "array",
-        "items": _obj({
-            "severity": {"type": "string", "enum": ["blocker", "major", "minor"]},
-            "category": _STR,
-            "quote": _STR,
-            "problem": _STR,
-            "fix": _STR,
-        }),
-    },
-    "checklist": {
-        "type": "array",
-        "items": _obj({"item": _STR, "ok": {"type": "boolean"}, "note": _STR}),
-    },
-})
+REVIEW_SCHEMA = _obj(
+    {
+        "score": {"type": "integer"},
+        "summary": _STR,
+        "strengths": _STRS,
+        "issues": {
+            "type": "array",
+            "items": _obj(
+                {
+                    "severity": {"type": "string", "enum": ["blocker", "major", "minor"]},
+                    "category": _STR,
+                    "quote": _STR,
+                    "problem": _STR,
+                    "fix": _STR,
+                }
+            ),
+        },
+        "checklist": {
+            "type": "array",
+            "items": _obj({"item": _STR, "ok": {"type": "boolean"}, "note": _STR}),
+        },
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -157,13 +169,13 @@ def _writer_system(project: BookProject) -> str:
 
 
 def gate(
-    review: Dict[str, Any],
-    metrics: Dict[str, Any],
-    cfg: Dict[str, Any],
-) -> Dict[str, Any]:
+    review: dict[str, Any],
+    metrics: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
     """Deterministische PASS/REVISE-Entscheidung mit Begründungen."""
     rc = cfg["review"]
-    reasons: List[str] = []
+    reasons: list[str] = []
     score = int(review.get("score", 0))
     if score < rc["pass_score"]:
         reasons.append(f"Score {score} < {rc['pass_score']}")
@@ -190,13 +202,13 @@ class ChapterResult:
     version: int
     verdict: str
     score: int
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
 
 
 class Ghostwriter:
     """Steuert alle Schreibschritte eines Buchprojekts."""
 
-    def __init__(self, llm: LLM, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, llm: LLM, config: dict[str, Any] | None = None) -> None:
         self.llm = llm
         self.cfg = config or load_config()
 
@@ -239,7 +251,7 @@ class Ghostwriter:
 
     # -- Outline -------------------------------------------------------
 
-    def develop_outline(self, project: BookProject, chapters: Optional[int] = None) -> str:
+    def develop_outline(self, project: BookProject, chapters: int | None = None) -> str:
         self._govern(project)
         if "premise" not in project.bible:
             raise ProjectError("Erst die Bible entwickeln (scriptor bible)")
@@ -254,7 +266,10 @@ class Ghostwriter:
             f"'beat' muss exakt einer der Beat-Namen der Buchart sein."
         )
         data = self.llm.complete_json(
-            "outline", _writer_system(project), prompt, OUTLINE_SCHEMA,
+            "outline",
+            _writer_system(project),
+            prompt,
+            OUTLINE_SCHEMA,
             effort=self._effort("outline"),
         )
         chs = data.get("chapters", [])
@@ -270,13 +285,13 @@ class Ghostwriter:
 
     # -- Voice ---------------------------------------------------------
 
-    def learn_voice(self, project: BookProject, samples: List[Path], describe: bool = True) -> str:
+    def learn_voice(self, project: BookProject, samples: list[Path], describe: bool = True) -> str:
         self._govern(project)
         text = "\n\n".join(p.read_text(encoding="utf-8") for p in samples)
         metrics = voice.analyze(text)
         if metrics.get("words", 0) < 300:
             raise ProjectError("Zu wenig Textprobe (< 300 Wörter) für ein belastbares Profil")
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "samples": [p.name for p in samples],
             "metrics": metrics,
             "top_words": voice.top_words(text),
@@ -300,7 +315,7 @@ class Ghostwriter:
         if not prev:
             return ""
         words = prev[1].split()
-        return " ".join(words[-int(self.cfg["context"]["previous_tail_words"]):])
+        return " ".join(words[-int(self.cfg["context"]["previous_tail_words"]) :])
 
     def draft_chapter(self, project: BookProject, nr: int) -> int:
         self._govern(project)
@@ -317,7 +332,9 @@ class Ghostwriter:
             + f"Ziel: ca. {plan['words_target']} Wörter. Gib NUR den Kapiteltext aus — "
             "keine Überschrift, keine Kommentare, keine Meta-Hinweise."
         )
-        text = self.llm.complete("draft", _writer_system(project), prompt, effort=self._effort("draft"))
+        text = self.llm.complete(
+            "draft", _writer_system(project), prompt, effort=self._effort("draft")
+        )
         version, _ = project.write_chapter(nr, text.strip() + "\n", f"Entwurf Kapitel {nr}")
         self._summarize(project, nr, text)
         return version
@@ -333,7 +350,7 @@ class Ghostwriter:
         )
         project.write_summary(nr, summary.strip())
 
-    def _metrics(self, project: BookProject, nr: int, text: str) -> Dict[str, Any]:
+    def _metrics(self, project: BookProject, nr: int, text: str) -> dict[str, Any]:
         target = project.chapter_plan(nr).get("words_target")
         words = len(text.split())
         v = (project.read_ssot("voice") or {}).get("metrics")
@@ -397,8 +414,12 @@ class Ghostwriter:
             f"AKTUELLE FASSUNG:\n<<<\n{text}\n>>>\n\n"
             "Gib NUR den vollständigen überarbeiteten Kapiteltext aus."
         )
-        new = self.llm.complete("revise", _writer_system(project), prompt, effort=self._effort("revise"))
-        v, _ = project.write_chapter(nr, new.strip() + "\n", f"Revision Kapitel {nr} (aus v{version})")
+        new = self.llm.complete(
+            "revise", _writer_system(project), prompt, effort=self._effort("revise")
+        )
+        v, _ = project.write_chapter(
+            nr, new.strip() + "\n", f"Revision Kapitel {nr} (aus v{version})"
+        )
         self._summarize(project, nr, new)
         return v
 
@@ -408,10 +429,10 @@ class Ghostwriter:
         self,
         project: BookProject,
         start: int = 1,
-        end: Optional[int] = None,
-        max_revisions: Optional[int] = None,
+        end: int | None = None,
+        max_revisions: int | None = None,
         progress: Any = None,
-    ) -> List[ChapterResult]:
+    ) -> list[ChapterResult]:
         """Entwurf → Lektorat → Revision je Kapitel, bis PASS oder Revisionslimit."""
         if not project.outline:
             raise ProjectError("Erst die Outline erstellen (scriptor outline)")

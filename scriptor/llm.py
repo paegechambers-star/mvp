@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 from scriptor.audit import AuditLog
 
@@ -34,10 +35,10 @@ class LLMError(RuntimeError):
 class AgentTurn:
     """Ergebnis eines Agent-Schritts: Rohinhalt (für die Historie) + Tool-Calls + Text."""
 
-    content: List[Any]
+    content: list[Any]
     stop_reason: str
     text: str
-    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
 
 
 class LLM(Protocol):
@@ -58,16 +59,16 @@ class LLM(Protocol):
         role: str,
         system: str,
         prompt: str,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         *,
         effort: str = "high",
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
 
     def agent_turn(
         self,
         system: str,
-        messages: List[Dict[str, Any]],
-        tools: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
         *,
         effort: str = "high",
     ) -> AgentTurn: ...
@@ -91,7 +92,7 @@ class AnthropicLLM:
         audit: AuditLog,
         model: str = DEFAULT_MODEL,
         client: Any = None,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> None:
         if client is None:
             try:
@@ -154,10 +155,10 @@ class AnthropicLLM:
         role: str,
         system: str,
         prompt: str,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         *,
         effort: str = "high",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         message = self._stream(
             max_tokens=32000,
             system=system,
@@ -177,8 +178,8 @@ class AnthropicLLM:
     def agent_turn(
         self,
         system: str,
-        messages: List[Dict[str, Any]],
-        tools: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
         *,
         effort: str = "high",
     ) -> AgentTurn:
@@ -195,9 +196,7 @@ class AnthropicLLM:
             messages=messages,
         )
         last = messages[-1]["content"] if messages else ""
-        self._audit.llm_call(
-            "agent", message.model, str(last), message.stop_reason, message.usage
-        )
+        self._audit.llm_call("agent", message.model, str(last), message.stop_reason, message.usage)
         if message.stop_reason == "refusal":
             self._check("agent", message)
         return AgentTurn(
@@ -229,14 +228,14 @@ class FakeLLM:
 
     def __init__(
         self,
-        responders: Optional[Dict[str, Callable[[str, str], Any]]] = None,
-        agent_script: Optional[List[AgentTurn]] = None,
-        audit: Optional[AuditLog] = None,
+        responders: dict[str, Callable[[str, str], Any]] | None = None,
+        agent_script: list[AgentTurn] | None = None,
+        audit: AuditLog | None = None,
     ) -> None:
         self._responders = responders or {}
         self._script = list(agent_script or [])
         self._audit = audit
-        self.calls: List[Dict[str, Any]] = []
+        self.calls: list[dict[str, Any]] = []
 
     @property
     def model(self) -> str:
@@ -253,7 +252,7 @@ class FakeLLM:
         out = self._respond(role, system, prompt)
         return str(out) if out is not None else f"[{role}] Platzhaltertext."
 
-    def complete_json(self, role, system, prompt, schema, *, effort="high") -> Dict[str, Any]:
+    def complete_json(self, role, system, prompt, schema, *, effort="high") -> dict[str, Any]:
         out = self._respond(role, system, prompt)
         return dict(out) if out is not None else {}
 

@@ -16,9 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
 
 from contextos.types import CommitBlock
 
@@ -34,16 +32,16 @@ class LogEntry:
     """An immutable row in the ContextOS internal audit log."""
 
     __slots__ = (
+        "actor",
         "chain_index",
         "commit_id",
-        "operation",
-        "target_id",
-        "actor",
-        "timestamp",
         "content_hash",
-        "prev_hash",
-        "hash",
         "extra",
+        "hash",
+        "operation",
+        "prev_hash",
+        "target_id",
+        "timestamp",
     )
 
     def __init__(
@@ -57,7 +55,7 @@ class LogEntry:
         content_hash: str,
         prev_hash: str,
         hash_: str,
-        extra: Optional[str] = None,
+        extra: str | None = None,
     ) -> None:
         self.chain_index = chain_index
         self.commit_id = commit_id
@@ -131,7 +129,7 @@ class ContextOSLog:
     @staticmethod
     def _compute_hash(entry_data: dict, prev_hash: str) -> str:  # type: ignore[type-arg]
         payload = json.dumps(entry_data, sort_keys=True, default=str)
-        raw = f"{payload}{prev_hash}".encode("utf-8")
+        raw = f"{payload}{prev_hash}".encode()
         return hashlib.sha256(raw).hexdigest()
 
     def _last_hash(self, conn: sqlite3.Connection) -> tuple[int, str]:
@@ -157,11 +155,11 @@ class ContextOSLog:
         chain_index, prev_hash = self._last_hash(conn)
         ts = commit.timestamp.isoformat()
         entry_data = {
-            "commit_id":   commit.commit_id,
-            "operation":   commit.operation.value,
-            "target_id":   commit.target_id,
-            "actor":       commit.actor.value,
-            "timestamp":   ts,
+            "commit_id": commit.commit_id,
+            "operation": commit.operation.value,
+            "target_id": commit.target_id,
+            "actor": commit.actor.value,
+            "timestamp": ts,
             "content_hash": commit.new_content_hash,
         }
         computed_hash = self._compute_hash(entry_data, prev_hash)
@@ -212,8 +210,17 @@ class ContextOSLog:
 
         prev_hash = GENESIS_HASH
         for row in rows:
-            (idx, commit_id, operation, target_id, actor,
-             timestamp, content_hash, stored_prev, stored_hash) = row
+            (
+                idx,
+                commit_id,
+                operation,
+                target_id,
+                actor,
+                timestamp,
+                content_hash,
+                stored_prev,
+                stored_hash,
+            ) = row
 
             if stored_prev != prev_hash:
                 raise TamperDetectedError(
@@ -237,7 +244,7 @@ class ContextOSLog:
             prev_hash = stored_hash
         return True
 
-    def entries(self) -> List[LogEntry]:
+    def entries(self) -> list[LogEntry]:
         """Return all log entries in chain order."""
         with sqlite3.connect(str(self._db_path)) as conn:
             rows = conn.execute(
@@ -247,9 +254,16 @@ class ContextOSLog:
             ).fetchall()
         return [
             LogEntry(
-                chain_index=r[0], commit_id=r[1], operation=r[2],
-                target_id=r[3], actor=r[4], timestamp=r[5],
-                content_hash=r[6], prev_hash=r[7], hash_=r[8], extra=r[9],
+                chain_index=r[0],
+                commit_id=r[1],
+                operation=r[2],
+                target_id=r[3],
+                actor=r[4],
+                timestamp=r[5],
+                content_hash=r[6],
+                prev_hash=r[7],
+                hash_=r[8],
+                extra=r[9],
             )
             for r in rows
         ]

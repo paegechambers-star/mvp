@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 import sys
 
-import pytest
 from fastapi.testclient import TestClient
 
 from frapp.api import app

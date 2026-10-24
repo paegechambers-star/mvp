@@ -13,37 +13,37 @@ Usage:
   python scripts/gtm/outreach_pipeline.py
   python scripts/gtm/outreach_pipeline.py --segment cto --export csv
 """
+
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
-from typing import List
 
-BOLD  = "\033[1m"
-CYAN  = "\033[96m"
+BOLD = "\033[1m"
+CYAN = "\033[96m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-TODAY = date.today().isoformat()
+TODAY = date.today().isoformat()  # noqa: DTZ011 - lokales Datum für Dateinamen
 
 
 # ── Ideal Customer Profiles ───────────────────────────────────────────────────
+
 
 @dataclass
 class Contact:
     name: str
     title: str
     company: str
-    segment: str          # "cto" | "compliance" | "engineer"
-    pain_signal: str      # Why they need this NOW
+    segment: str  # "cto" | "compliance" | "engineer"
+    pain_signal: str  # Why they need this NOW
     linkedin_url: str = ""
     email: str = ""
 
 
 # Seed contacts — replace / extend with real prospects from LinkedIn Sales Nav
-CONTACTS: List[Contact] = [
+CONTACTS: list[Contact] = [
     # ── Segment 1: CTO / Head of AI at DACH SaaS ─────────────────────────────
     Contact(
         name="[VORNAME]",
@@ -111,7 +111,6 @@ Endpunkten, und 100% offline-Betrieb möglich — keine Daten verlassen euer Sys
 Wäre ein 15-min-Call diese Woche sinnvoll?
 
 Beste Grüße""",
-
         "linkedin_touch2": """\
 Hallo {name},
 
@@ -123,7 +122,6 @@ FraPP liefert den Audit-Trail am ersten Tag — komplett parametrisierbar via YA
 keine Codeänderungen für neue Compliance-Regeln.
 
 Habt ihr das Thema intern schon adressiert?""",
-
         "email_touch1": """\
 Betreff: EU AI Act August 2026 — habt ihr den Audit-Trail?
 
@@ -145,7 +143,6 @@ Was wir gebaut haben:
 
 {sender_name}""",
     },
-
     "compliance": {
         "linkedin_touch1": """\
 Hallo {name},
@@ -160,7 +157,6 @@ Wir haben das System selbst einem simulierten OWASP-Penetrationstest unterzogen 
 30/30 Angriffsvektoren blockiert.
 
 Kurzes Gespräch diese Woche?""",
-
         "email_touch1": """\
 Betreff: DSGVO + EU AI Act — eine Infrastruktur für beide Anforderungen
 
@@ -183,7 +179,6 @@ Darf ich euch eine kurze Demo schicken?
 
 {sender_name}""",
     },
-
     "engineer": {
         "linkedin_touch1": """\
 Hallo {name},
@@ -198,7 +193,6 @@ Invarianten-Angriffe — alle bestanden.
 Drop-in für FastAPI-Backends. 15 Minuten Setup.
 
 Interessiert?""",
-
         "email_touch1": """\
 Betreff: EU AI Act Hochrisiko-Konformität — fertige Governance-Pipeline
 
@@ -227,6 +221,7 @@ Demo-Repo + Swagger-Docs kann ich sofort schicken. Interesse?
 
 # ── Pipeline Generator ────────────────────────────────────────────────────────
 
+
 def generate_sequence(contact: Contact, sender_name: str = "Dein Name") -> dict:
     tmpl = TEMPLATES[contact.segment]
     sequence = {}
@@ -250,13 +245,15 @@ def print_pipeline(sender_name: str = "Dein Name"):
         by_segment.setdefault(c.segment, []).append(c)
 
     segment_labels = {
-        "cto":        "SEGMENT 1 · CTO / Head of AI (EU AI Act Angle)",
+        "cto": "SEGMENT 1 · CTO / Head of AI (EU AI Act Angle)",
         "compliance": "SEGMENT 2 · Compliance / Regulatory (DSGVO Angle)",
-        "engineer":   "SEGMENT 3 · AI Engineer / Healthcare / HR (Hochrisiko Angle)",
+        "engineer": "SEGMENT 3 · AI Engineer / Healthcare / HR (Hochrisiko Angle)",
     }
 
     for segment, contacts in by_segment.items():
-        print(f"{BOLD}── {segment_labels[segment]} {'─' * (40 - len(segment_labels[segment]) + 16)}{RESET}")
+        print(
+            f"{BOLD}── {segment_labels[segment]} {'─' * (40 - len(segment_labels[segment]) + 16)}{RESET}"
+        )
         print(f"  {len(contacts)} Kontakte | Schmerz: {contacts[0].pain_signal[:60]}...")
         print()
 
@@ -264,7 +261,12 @@ def print_pipeline(sender_name: str = "Dein Name"):
             seq = generate_sequence(contact, sender_name)
             for step_name, message in seq.items():
                 channel = "LinkedIn DM" if "linkedin" in step_name else "E-Mail"
-                touch = step_name.replace("linkedin_", "").replace("email_", "").replace("_", " ").upper()
+                touch = (
+                    step_name.replace("linkedin_", "")
+                    .replace("email_", "")
+                    .replace("_", " ")
+                    .upper()
+                )
                 print(f"  {YELLOW}[{channel} — {touch}]{RESET}")
                 print()
                 for line in message.strip().split("\n"):
@@ -288,30 +290,45 @@ def print_pipeline(sender_name: str = "Dein Name"):
 
 def export_csv(filename: str = "outreach_contacts.csv"):
     import csv
+
     with open(filename, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            "name", "title", "company", "segment", "pain_signal",
-            "linkedin_url", "email", "status", "next_action", "notes"
-        ])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "name",
+                "title",
+                "company",
+                "segment",
+                "pain_signal",
+                "linkedin_url",
+                "email",
+                "status",
+                "next_action",
+                "notes",
+            ],
+        )
         writer.writeheader()
         for c in CONTACTS:
-            writer.writerow({
-                "name": c.name,
-                "title": c.title,
-                "company": c.company,
-                "segment": c.segment,
-                "pain_signal": c.pain_signal,
-                "linkedin_url": c.linkedin_url,
-                "email": c.email,
-                "status": "not_contacted",
-                "next_action": "Touch 1 senden",
-                "notes": "",
-            })
+            writer.writerow(
+                {
+                    "name": c.name,
+                    "title": c.title,
+                    "company": c.company,
+                    "segment": c.segment,
+                    "pain_signal": c.pain_signal,
+                    "linkedin_url": c.linkedin_url,
+                    "email": c.email,
+                    "status": "not_contacted",
+                    "next_action": "Touch 1 senden",
+                    "notes": "",
+                }
+            )
     print(f"{GREEN}✓ CSV exportiert: {filename}{RESET}")
 
 
 if __name__ == "__main__":
     import sys
+
     sender = "Dein Name"
     if "--export" in sys.argv and "csv" in sys.argv:
         export_csv()

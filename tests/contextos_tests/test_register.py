@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
-
 import pytest
 
 from contextos.log import ContextOSLog
 from contextos.register import Register
 from contextos.store import sha256_of
-from contextos.types import Actor, Citation, Cluster, EntryType, Kind, SSOTEntry, TruthGate, WorkEntry
+from contextos.types import (
+    Actor,
+    TruthGate,
+)
 from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
 

@@ -37,8 +37,13 @@ class _Client:
 
 def _msg(text, stop="end_turn"):
     usage = NS(input_tokens=10, output_tokens=5, cache_read_input_tokens=0)
-    return NS(content=[NS(type="text", text=text)], stop_reason=stop, model="m",
-              usage=usage, stop_details=NS(category="cyber"))
+    return NS(
+        content=[NS(type="text", text=text)],
+        stop_reason=stop,
+        model="m",
+        usage=usage,
+        stop_details=NS(category="cyber"),
+    )
 
 
 def test_complete_sends_current_api_shape():
@@ -70,6 +75,8 @@ def test_agent_turn_extracts_tool_calls():
     msg = _msg("ok", "tool_use")
     msg.content.append(NS(type="tool_use", id="t1", name="list_books", input={}))
     client = _Client(msg)
-    turn = AnthropicLLM(AuditLog(), client=client).agent_turn("s", [{"role": "user", "content": "x"}], [])
+    turn = AnthropicLLM(AuditLog(), client=client).agent_turn(
+        "s", [{"role": "user", "content": "x"}], []
+    )
     assert turn.tool_calls == [{"id": "t1", "name": "list_books", "input": {}}]
     assert "tool_choice" not in client.params

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from contextos.mkid_runner import MKIDRunner
-from contextos.resolver import Resolver
-from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
+from tests.contextos_tests.conftest import make_nkid, make_ssot
 
 
 def _runner(register, resolver) -> MKIDRunner:
@@ -25,7 +22,7 @@ def test_seed_defaults_is_idempotent(register, resolver):
     runner = _runner(register, resolver)
     runner.seed_defaults()
     second = runner.seed_defaults()
-    assert second == []   # nothing inserted on second call
+    assert second == []  # nothing inserted on second call
 
 
 def test_list_mkids_shows_seeded(register, resolver):

@@ -48,17 +48,25 @@ class KurzgeschichteDock(Dock):
             if latest is None:
                 return "Kapitel hat noch keinen Text."
             hits = repetitions(latest[1])
-            return "\n".join(f"{w}: {n}x auf engem Raum" for w, n in hits) or "Keine auffälligen Wiederholungen."
+            return (
+                "\n".join(f"{w}: {n}x auf engem Raum" for w, n in hits)
+                or "Keine auffälligen Wiederholungen."
+            )
 
         registry.add_tool(
             "word_repetitions",
             "Findet Wortwiederholungen auf engem Raum in einem Kapitel (Lektorats-Hilfe).",
-            {"type": "object",
-             "properties": {"slug": {"type": "string"}, "nr": {"type": "integer"}},
-             "required": ["slug", "nr"], "additionalProperties": False},
+            {
+                "type": "object",
+                "properties": {"slug": {"type": "string"}, "nr": {"type": "integer"}},
+                "required": ["slug", "nr"],
+                "additionalProperties": False,
+            },
             tool,
         )
-        registry.add_material("pitch_tweet", "Ein Pitch in max. 280 Zeichen, Hook zuerst, kein Spoiler.")
+        registry.add_material(
+            "pitch_tweet", "Ein Pitch in max. 280 Zeichen, Hook zuerst, kein Spoiler."
+        )
         return True
 
 

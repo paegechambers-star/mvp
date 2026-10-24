@@ -13,7 +13,7 @@ from enum import Enum, auto
 
 
 class CommandRisk(Enum):
-    READ = auto()   # safe to auto-execute (show, list, status, explain, …)
+    READ = auto()  # safe to auto-execute (show, list, status, explain, …)
     WRITE = auto()  # requires explicit desktop confirmation before execution
 
 
@@ -27,10 +27,9 @@ _WRITE_RE = re.compile(
     r"patch|refactor|rename|move|copy|"
     # Execution
     r"run|exec(?:ut[ei])?|launch|start|stop|restart|kill|shutdown|reboot|trigger|deploy|"
-    r"build|compil[ei]|test\b|"                   # 'test' can be write (running test suite)
+    r"build|compil[ei]|test\b|"  # 'test' can be write (running test suite)
     # Package managers / system commands
-    r"install|uninstall|upgrade|downgrade|"
-    r"npm|pip|brew|apt(?:-get)?|yarn|cargo|poetry|pipenv|"
+    r"install|uninstall|upgrade|downgrade|" r"npm|pip|brew|apt(?:-get)?|yarn|cargo|poetry|pipenv|"
     # VCS
     r"git\s+(?:commit|push|reset|clean|rebase|merge|branch\s+-[Dd]|rm|add|stash)|"
     r"commit|push\s+(?:to|origin)|pull\s+request|"

@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from contextos.id_generator import generate_id
 from contextos.register import Register
@@ -23,7 +23,6 @@ from contextos.store import sha256_of
 from contextos.types import (
     Actor,
     Cluster,
-    CommitOp,
     EntryType,
     Kind,
     TruthGate,
@@ -35,33 +34,33 @@ _DEFAULT_BASE: Path = Path.home() / ".frapp" / "contextos"
 # Fixed time_bucket and sequence for the 5 default MKIDs so they are
 # deterministic across installs (no db counter needed for seeding).
 _SEED_TB = "00"
-_DEFAULT_MKID_SPECS: List[Dict[str, Any]] = [
+_DEFAULT_MKID_SPECS: list[dict[str, Any]] = [
     {
-        "seq":  0,
+        "seq": 0,
         "name": "list_ssot_facts",
         "desc": "List all active SSOT entries with EntryType FACT",
         "proc": {"action": "query", "kind": "NK", "entry_type": "FACT", "active_only": True},
     },
     {
-        "seq":  1,
+        "seq": 1,
         "name": "verify_chain",
         "desc": "Verify the integrity of the ContextOS internal audit chain",
         "proc": {"action": "verify_chain"},
     },
     {
-        "seq":  2,
+        "seq": 2,
         "name": "find_unverified",
         "desc": "Find all active SSOT entries with TruthGate UNVERIFIED",
         "proc": {"action": "find_unverified"},
     },
     {
-        "seq":  3,
+        "seq": 3,
         "name": "citation_summary",
         "desc": "Return citation count per active SSOT entry",
         "proc": {"action": "citation_summary"},
     },
     {
-        "seq":  4,
+        "seq": 4,
         "name": "cluster_summary",
         "desc": "Return entry counts grouped by cluster",
         "proc": {"action": "cluster_summary"},
@@ -69,8 +68,10 @@ _DEFAULT_MKID_SPECS: List[Dict[str, Any]] = [
 ]
 
 
-def _build_default_mkid(spec: Dict[str, Any], db_path: Optional[Path] = None) -> WorkEntry:
-    content = json.dumps({"name": spec["name"], "description": spec["desc"], "procedure": spec["proc"]})
+def _build_default_mkid(spec: dict[str, Any], db_path: Path | None = None) -> WorkEntry:
+    content = json.dumps(
+        {"name": spec["name"], "description": spec["desc"], "procedure": spec["proc"]}
+    )
     now = datetime.now(timezone.utc)
     mkid = generate_id(
         kind=Kind.MK,
@@ -109,14 +110,14 @@ class MKIDRunner:
         self._register = register
         self._resolver = resolver
 
-    def seed_defaults(self, db_path: Optional[Path] = None) -> List[str]:
+    def seed_defaults(self, db_path: Path | None = None) -> list[str]:
         """
         Seed the 5 default MKIDs into the WORK partition.
 
         Idempotent: skips any MKID that already exists.
         Returns list of MKIDs that were actually inserted.
         """
-        inserted: List[str] = []
+        inserted: list[str] = []
         for spec in _DEFAULT_MKID_SPECS:
             entry = _build_default_mkid(spec, db_path)
             if self._register.get_work(entry.mkid) is None:
@@ -124,7 +125,7 @@ class MKIDRunner:
                 inserted.append(entry.mkid)
         return inserted
 
-    def execute(self, mkid: str) -> Dict[str, Any]:
+    def execute(self, mkid: str) -> dict[str, Any]:
         """
         Execute the procedure encoded in the MKID's content field.
 
@@ -152,7 +153,7 @@ class MKIDRunner:
             "executed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def _dispatch(self, action: Optional[str], procedure: Dict[str, Any]) -> Any:
+    def _dispatch(self, action: str | None, procedure: dict[str, Any]) -> Any:
         if action == "query":
             qr = self._resolver.query(
                 kind=procedure.get("kind"),
@@ -165,8 +166,7 @@ class MKIDRunner:
             }
 
         if action == "verify_chain":
-            from contextos.log import ContextOSLog  # type: ignore
-            return {"chain_valid": True}   # placeholder — runner doesn't own the log
+            return {"chain_valid": True}  # placeholder — runner doesn't own the log
 
         if action == "find_unverified":
             entries = self._resolver.find_unverified()
@@ -174,13 +174,11 @@ class MKIDRunner:
 
         if action == "citation_summary":
             return {
-                e.nkid: len(e.citations)
-                for e in self._register.all_ssot()
-                if not e.superseded_by
+                e.nkid: len(e.citations) for e in self._register.all_ssot() if not e.superseded_by
             }
 
         if action == "cluster_summary":
-            counts: Dict[str, int] = {}
+            counts: dict[str, int] = {}
             for e in self._register.all_ssot():
                 key = e.cluster.name
                 counts[key] = counts.get(key, 0) + 1
@@ -191,18 +189,20 @@ class MKIDRunner:
 
         raise ValueError(f"Unknown MKID action: {action!r}")
 
-    def list_mkids(self) -> List[Dict[str, Any]]:
+    def list_mkids(self) -> list[dict[str, Any]]:
         """Return summary metadata for all WORK entries that are executable MKIDs."""
         results = []
         for entry in self._register.all_work():
             try:
                 descriptor = json.loads(entry.content)
                 if "procedure" in descriptor:
-                    results.append({
-                        "mkid": entry.mkid,
-                        "name": descriptor.get("name", ""),
-                        "description": descriptor.get("description", ""),
-                    })
+                    results.append(
+                        {
+                            "mkid": entry.mkid,
+                            "name": descriptor.get("name", ""),
+                            "description": descriptor.get("description", ""),
+                        }
+                    )
             except (json.JSONDecodeError, AttributeError):
                 pass
         return results

@@ -1,4 +1,8 @@
 [lint]
+# Bewusste Muster, keine Fehler:
+#   B008   Depends()/typer.Option() als Default — so funktionieren FastAPI und Typer
+#   BLE001 absichtliches "alles abfangen" zur Isolation (Plugins, Metering, Hintergrund-Jobs)
+ignore = ["B008", "BLE001"]
 exclude = [
   "recovery",
   "archive",
@@ -14,6 +18,10 @@ exclude = [
 line-ending = "lf"
 
 [lint.per-file-ignores]
+# Tests dürfen subprocess ohne check, naive Testdaten, breite Ausnahmen und asserts nutzen
+"tests/**" = ["S", "PLW1510", "B017", "DTZ", "PLR2004", "ARG"]
+"godai/tests/**" = ["S", "PLW1510", "B017", "DTZ", "PLR2004", "ARG"]
+"smoke_test.py" = ["S", "PLW1510", "DTZ", "T201"]
 # Beispiel: legacy Skripte (aktiviere bei Bedarf)
 #"src/launcher/**/*.py" = ["E701","E702"]
 #"src/frapp_desktop/**/*.py" = ["E701","E702"]

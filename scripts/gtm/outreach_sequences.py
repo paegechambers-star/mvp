@@ -12,15 +12,17 @@ Usage:
   python scripts/gtm/outreach_sequences.py --segment cto
   python scripts/gtm/outreach_sequences.py --export
 """
+
 from __future__ import annotations
+
 import sys
 
-BOLD   = "\033[1m"
-CYAN   = "\033[96m"
-GREEN  = "\033[92m"
+BOLD = "\033[1m"
+CYAN = "\033[96m"
+GREEN = "\033[92m"
 YELLOW = "\033[93m"
-RED    = "\033[91m"
-RESET  = "\033[0m"
+RED = "\033[91m"
+RESET = "\033[0m"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SEGMENT 1 · CTO / Head of AI bei DACH SaaS
@@ -29,9 +31,8 @@ RESET  = "\033[0m"
 
 SEG1 = {
     "label": "CTO / Head of AI — DACH SaaS",
-    "pain":  "EU AI Act August 2026 — kein prüfbarer Audit-Trail",
+    "pain": "EU AI Act August 2026 — kein prüfbarer Audit-Trail",
     "where": "LinkedIn: 'CTO' + 'AI' + 'Germany' + '50-500 MA' | AngelList DACH",
-
     "li_t1": """\
 Hallo {name},
 
@@ -46,7 +47,6 @@ SHA256-Kette, DSGVO out of the box. 275 automatisierte Tests. 100% offline mögl
 Wäre ein 15-Minuten-Call sinnvoll?
 
 Grüße""",
-
     "li_t2": """\
 Hallo {name},
 
@@ -59,7 +59,6 @@ Was wir liefern: Drop-in für FastAPI, 15 Minuten Setup, Audit-Artefakt sofort. 
 Starter ab 149 €/Monat.
 
 Habt ihr das intern schon adressiert — oder sucht ihr noch eine Lösung?""",
-
     "li_t3": """\
 Hallo {name},
 
@@ -71,7 +70,6 @@ Falls doch: ich schicke euch gerne das Demo-Repo + Swagger-Docs, \
 ihr könnt es in 15 Minuten selbst testen. Kein Call, kein Pitch — nur Code.
 
 Einfach antworten mit "Demo" und ich schicke den Link.""",
-
     "mail_t1": """\
 Betreff: EU AI Act August 2026 — habt ihr den Audit-Trail?
 
@@ -93,7 +91,6 @@ Self-Hosted (Quellcode): 15.000 € einmalig
 15-Minuten-Demo diese Woche?
 
 {sender}""",
-
     "mail_t2": """\
 Betreff: Re: EU AI Act — Demo-Link für {company}
 
@@ -111,7 +108,6 @@ verwendetem Modell und Validierungs-Verdict protokolliert — unveränderbar.
 Habt ihr 15 Minuten für eine kurze Demo?
 
 {sender}""",
-
     "mail_t3": """\
 Betreff: Letzte Nachricht — Demo-Repo für {company}
 
@@ -139,9 +135,8 @@ Wenn sich das ändert oder ihr Fragen habt: einfach melden.
 
 SEG2 = {
     "label": "CCO / Compliance bei Bank / Versicherung / Fintech",
-    "pain":  "DSGVO + EU AI Act — zwei Audits, ein System gesucht",
+    "pain": "DSGVO + EU AI Act — zwei Audits, ein System gesucht",
     "where": "LinkedIn: 'Compliance' + 'KI' + 'DACH' | BaFin-regulierte Unternehmen",
-
     "li_t1": """\
 Hallo {name},
 
@@ -154,7 +149,6 @@ Auskunfts-/Lösch-/Export-Endpunkte (DSGVO Art. 15/17/20). \
 Vollständig On-Premise — BaFin/FINMA-konform.
 
 Wäre ein kurzes Gespräch sinnvoll?""",
-
     "li_t2": """\
 Hallo {name},
 
@@ -170,7 +164,6 @@ Unser System erzeugt bei jedem KI-Aufruf automatisch:
 Das ist exakt das was ein BaFin-Prüfer sehen will.
 
 Habt ihr so etwas gerade in eurer Infrastruktur?""",
-
     "li_t3": """\
 Hallo {name},
 
@@ -182,7 +175,6 @@ Quellcode, keine laufenden Gebühren, keine Cloud-Abhängigkeit. \
 Für manche Häuser die einzige akzeptable Option.
 
 Einfach antworten falls Interesse.""",
-
     "mail_t1": """\
 Betreff: DSGVO + EU AI Act — eine Infrastruktur für beide Anforderungen
 
@@ -206,7 +198,6 @@ Preis: 149 €/Monat · Self-Hosted: 15.000 € einmalig (Quellcode-Lizenz)
 Darf ich eine kurze Demo schicken?
 
 {sender}""",
-
     "mail_t2": """\
 Betreff: Re: DSGVO + EU AI Act — Audit-Protokoll als Anhang
 
@@ -235,7 +226,6 @@ Ein Prüfer kann die gesamte Kette in Sekunden verifizieren.
 15-Minuten-Call um das live zu zeigen?
 
 {sender}""",
-
     "mail_t3": """\
 Betreff: Letzte E-Mail — On-Premise Demo für {company}
 
@@ -260,9 +250,8 @@ Demo-Repo steht jederzeit zur Verfügung. Einfach melden.
 
 SEG3 = {
     "label": "AI Engineer / CTO bei Healthcare / HR Tech (Hochrisiko-KI)",
-    "pain":  "EU AI Act Hochrisiko-Zertifizierung blockiert Go-live",
+    "pain": "EU AI Act Hochrisiko-Zertifizierung blockiert Go-live",
     "where": "LinkedIn: 'ML Engineer' + 'Healthcare AI' / 'HR Tech' | HIMSS | RecFest",
-
     "li_t1": """\
 Hallo {name},
 
@@ -275,7 +264,6 @@ G.O.D.A.I. ist ein Drop-in für FastAPI-Backends: \
 ATHENA-Modul dokumentiert die menschliche Aufsicht (EU AI Act Art. 14).
 
 Interessiert? Ich schicke das Demo-Repo.""",
-
     "li_t2": """\
 Hallo {name},
 
@@ -290,7 +278,6 @@ EU AI Act Checkliste für Hochrisiko-Systeme:
 Das sind die vier Punkte die ein Notified Body als erstes prüft.
 
 Habt ihr die alle abgedeckt?""",
-
     "li_t3": """\
 Hallo {name},
 
@@ -302,7 +289,6 @@ Ich schicke euch einfach:
 3. Eine EU AI Act Mapping-Tabelle: welches Modul welchen Artikel abdeckt
 
 Einfach "Ja" antworten und ich schicke alles.""",
-
     "mail_t1": """\
 Betreff: EU AI Act Hochrisiko — Governance-Infrastruktur die den Go-live entsperrt
 
@@ -327,7 +313,6 @@ Preis: 149 €/Monat · Self-Hosted: 15.000 € einmalig
 Demo-Repo + Swagger-Docs schicke ich sofort. Interesse?
 
 {sender}""",
-
     "mail_t2": """\
 Betreff: Re: EU AI Act Hochrisiko — konkretes Mapping für {company}
 
@@ -349,7 +334,6 @@ Ich kann euch schicken:
 Einfach antworten — kein Call notwendig wenn ihr das lieber asynchron prüft.
 
 {sender}""",
-
     "mail_t3": """\
 Betreff: Letzte Nachricht — EU AI Act Mapping-Tabelle für euch
 
@@ -385,17 +369,20 @@ def print_segment(seg: dict, sender: str = "Dein Name"):
     print(f"{CYAN}{BOLD}{'═' * 68}{RESET}\n")
 
     touches = [
-        ("LinkedIn", "Touch 1 — Tag 0",  seg["li_t1"]),
-        ("LinkedIn", "Touch 2 — Tag 3",  seg["li_t2"]),
+        ("LinkedIn", "Touch 1 — Tag 0", seg["li_t1"]),
+        ("LinkedIn", "Touch 2 — Tag 3", seg["li_t2"]),
         ("LinkedIn", "Touch 3 — Tag 10", seg["li_t3"]),
-        ("E-Mail",   "Touch 1 — Tag 0",  seg["mail_t1"]),
-        ("E-Mail",   "Touch 2 — Tag 3",  seg["mail_t2"]),
-        ("E-Mail",   "Touch 3 — Tag 10", seg["mail_t3"]),
+        ("E-Mail", "Touch 1 — Tag 0", seg["mail_t1"]),
+        ("E-Mail", "Touch 2 — Tag 3", seg["mail_t2"]),
+        ("E-Mail", "Touch 3 — Tag 10", seg["mail_t3"]),
     ]
     for channel, label, text in touches:
         print(f"  {YELLOW}[{channel} · {label}]{RESET}")
-        for line in text.format(name="[VORNAME]", company="[UNTERNEHMEN]",
-                                sender=sender).strip().split("\n"):
+        for line in (
+            text.format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender)
+            .strip()
+            .split("\n")
+        ):
             print(f"    {line}")
         print()
 
@@ -426,12 +413,12 @@ def main():
 
     print(f"\n{BOLD}── Nächste Schritte ──────────────────────────────────────────────{RESET}")
     steps = [
-        ("Tag 0",   "LinkedIn Sales Nav: 20 Kontakte pro Segment identifizieren"),
-        ("Tag 0",   "HubSpot / Notion: CSV importieren (--export Flag)"),
-        ("Tag 1",   "Loom aufnehmen: 3 Min · MNEMOSYNE live · /docs · L4-Test"),
+        ("Tag 0", "LinkedIn Sales Nav: 20 Kontakte pro Segment identifizieren"),
+        ("Tag 0", "HubSpot / Notion: CSV importieren (--export Flag)"),
+        ("Tag 1", "Loom aufnehmen: 3 Min · MNEMOSYNE live · /docs · L4-Test"),
         ("Tag 1-3", "Touch 1 (LinkedIn + E-Mail) an alle 60 Kontakte senden"),
         ("Tag 4-6", "Touch 2 an alle ohne Antwort"),
-        ("Tag 11",  "Touch 3 (Break-up Message) — dann abhaken"),
+        ("Tag 11", "Touch 3 (Break-up Message) — dann abhaken"),
         ("Laufend", "Antworten → Demo-Call buchen → 149 €/Monat Starter pitchen"),
     ]
     for tag, step in steps:
@@ -440,24 +427,39 @@ def main():
 
 
 def _export_all(sender: str):
-    import csv, io
+    import csv
+
     rows = []
     for seg_key, seg in SEGMENTS.items():
-        rows.append({
-            "segment": seg_key,
-            "label": seg["label"],
-            "pain": seg["pain"],
-            "where": seg["where"],
-            "name": "[VORNAME]",
-            "company": "[UNTERNEHMEN]",
-            "li_t1": seg["li_t1"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "li_t2": seg["li_t2"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "li_t3": seg["li_t3"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "mail_t1": seg["mail_t1"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "mail_t2": seg["mail_t2"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "mail_t3": seg["mail_t3"].format(name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender),
-            "status": "not_started",
-        })
+        rows.append(
+            {
+                "segment": seg_key,
+                "label": seg["label"],
+                "pain": seg["pain"],
+                "where": seg["where"],
+                "name": "[VORNAME]",
+                "company": "[UNTERNEHMEN]",
+                "li_t1": seg["li_t1"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "li_t2": seg["li_t2"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "li_t3": seg["li_t3"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "mail_t1": seg["mail_t1"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "mail_t2": seg["mail_t2"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "mail_t3": seg["mail_t3"].format(
+                    name="[VORNAME]", company="[UNTERNEHMEN]", sender=sender
+                ),
+                "status": "not_started",
+            }
+        )
     filename = "outreach_all_sequences.csv"
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

@@ -29,7 +29,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from godai.models.audit import AuditEvent
 from godai.models.policy import PolicyDecision
@@ -66,12 +66,12 @@ class PipelineResult:
     """
 
     success: bool
-    output: Optional[str]               # None when denied or validation failed
-    error: Optional[str]                # Human-readable error / denial reason
-    request: Optional[InternalRequest]  # None only if HERMES raised an exception
-    policy_decision: Optional[PolicyDecision]
-    route_decision: Optional[RouteDecision]
-    validation_result: Optional[ValidationResult]
+    output: str | None  # None when denied or validation failed
+    error: str | None  # Human-readable error / denial reason
+    request: InternalRequest | None  # None only if HERMES raised an exception
+    policy_decision: PolicyDecision | None
+    route_decision: RouteDecision | None
+    validation_result: ValidationResult | None
     timestamp: datetime
 
 
@@ -149,7 +149,7 @@ class GodaiPipeline:
         confidence_threshold: float = 0.7,
         secret_key: str = "dev-secret",
         dev_mode: bool = True,
-    ) -> "GodaiPipeline":
+    ) -> GodaiPipeline:
         """
         Convenience factory that wires all five modules with a shared MNEMOSYNE.
 
@@ -188,15 +188,17 @@ class GodaiPipeline:
     async def _log(
         self,
         event_type: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> None:
         """Append a PIPELINE-sourced audit event to MNEMOSYNE."""
-        await self._mnemosyne.append(AuditEvent(
-            event_type=event_type,
-            event_data=event_data,
-            source_module="PIPELINE",
-            timestamp=datetime.now(timezone.utc),
-        ))
+        await self._mnemosyne.append(
+            AuditEvent(
+                event_type=event_type,
+                event_data=event_data,
+                source_module="PIPELINE",
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -204,11 +206,11 @@ class GodaiPipeline:
 
     async def process(
         self,
-        token: Optional[str],
+        token: str | None,
         user_id: str,
         protocol: str,
         query: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> PipelineResult:
         """
         Process one request through the complete G.O.D.A.I. lifecycle.
@@ -245,11 +247,14 @@ class GodaiPipeline:
             )
         except AuthenticationError as exc:
             _logger.warning("Pipeline: auth rejected for %s: %s", user_id, exc)
-            await self._log("pipeline_error", {
-                "user_id": user_id,
-                "stage": "auth",
-                "error": str(exc),
-            })
+            await self._log(
+                "pipeline_error",
+                {
+                    "user_id": user_id,
+                    "stage": "auth",
+                    "error": str(exc),
+                },
+            )
             return PipelineResult(
                 success=False,
                 output=None,
@@ -262,11 +267,14 @@ class GodaiPipeline:
             )
         except RateLimitError as exc:
             _logger.warning("Pipeline: rate limit for %s: %s", user_id, exc)
-            await self._log("pipeline_error", {
-                "user_id": user_id,
-                "stage": "rate_limit",
-                "error": str(exc),
-            })
+            await self._log(
+                "pipeline_error",
+                {
+                    "user_id": user_id,
+                    "stage": "rate_limit",
+                    "error": str(exc),
+                },
+            )
             return PipelineResult(
                 success=False,
                 output=None,
@@ -288,12 +296,15 @@ class GodaiPipeline:
                 request.request_id,
                 policy_decision.reason,
             )
-            await self._log("pipeline_error", {
-                "request_id": str(request.request_id),
-                "user_id": request.user_id,
-                "stage": "policy",
-                "reason": policy_decision.reason,
-            })
+            await self._log(
+                "pipeline_error",
+                {
+                    "request_id": str(request.request_id),
+                    "user_id": request.user_id,
+                    "stage": "policy",
+                    "reason": policy_decision.reason,
+                },
+            )
             return PipelineResult(
                 success=False,
                 output=None,
@@ -323,13 +334,16 @@ class GodaiPipeline:
                 request.request_id,
                 exc,
             )
-            await self._log("pipeline_error", {
-                "request_id": str(request.request_id),
-                "user_id": request.user_id,
-                "stage": "generation",
-                "model_id": route_decision.model_id,
-                "error": str(exc),
-            })
+            await self._log(
+                "pipeline_error",
+                {
+                    "request_id": str(request.request_id),
+                    "user_id": request.user_id,
+                    "stage": "generation",
+                    "model_id": route_decision.model_id,
+                    "error": str(exc),
+                },
+            )
             return PipelineResult(
                 success=False,
                 output=None,
@@ -355,13 +369,16 @@ class GodaiPipeline:
                 request.request_id,
                 validation_result.issues_found,
             )
-            await self._log("pipeline_error", {
-                "request_id": str(request.request_id),
-                "user_id": request.user_id,
-                "stage": "validation",
-                "issues": validation_result.issues_found,
-                "confidence": validation_result.confidence,
-            })
+            await self._log(
+                "pipeline_error",
+                {
+                    "request_id": str(request.request_id),
+                    "user_id": request.user_id,
+                    "stage": "validation",
+                    "issues": validation_result.issues_found,
+                    "confidence": validation_result.confidence,
+                },
+            )
             return PipelineResult(
                 success=False,
                 output=None,
@@ -379,12 +396,15 @@ class GodaiPipeline:
             request.request_id,
             route_decision.model_id,
         )
-        await self._log("pipeline_success", {
-            "request_id": str(request.request_id),
-            "user_id": request.user_id,
-            "model_id": route_decision.model_id,
-            "output_len": len(generator_output),
-        })
+        await self._log(
+            "pipeline_success",
+            {
+                "request_id": str(request.request_id),
+                "user_id": request.user_id,
+                "model_id": route_decision.model_id,
+                "output_len": len(generator_output),
+            },
+        )
         return PipelineResult(
             success=True,
             output=generator_output,

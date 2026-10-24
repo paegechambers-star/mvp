@@ -10,21 +10,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 GENRE_DIR = Path(__file__).parent / "genres"
 
 # Zusätzliche Genre-Ordner aus Docks (Plugins). Eingebaute Bucharten haben Vorrang.
-_EXTRA_DIRS: List[Path] = []
+_EXTRA_DIRS: list[Path] = []
 
 
-def set_extra_dirs(dirs: List[Path]) -> None:
+def set_extra_dirs(dirs: list[Path]) -> None:
     _EXTRA_DIRS[:] = [Path(d) for d in dirs]
 
 
-def _search_dirs(directory: Optional[Path]) -> List[Path]:
+def _search_dirs(directory: Path | None) -> list[Path]:
     return [directory] if directory is not None else [GENRE_DIR, *_EXTRA_DIRS]
 
 
@@ -41,17 +41,17 @@ class Genre:
     name: str
     fiction: bool
     audience: str
-    target_words: Dict[str, int]
-    chapters: Dict[str, int]
-    structure: List[Dict[str, Any]]
+    target_words: dict[str, int]
+    chapters: dict[str, int]
+    structure: list[dict[str, Any]]
     pov_default: str = ""
     unit_label: str = "Kapitel"
     # G.O.D.A.I.-Datenklasse (PUBLIC | INTERNAL | SENSITIVE | RESTRICTED) für THEMIS
     data_class: str = "INTERNAL"
     series_support: bool = False
-    style_rules: List[str] = field(default_factory=list)
-    avoid: List[str] = field(default_factory=list)
-    qa_checklist: List[str] = field(default_factory=list)
+    style_rules: list[str] = field(default_factory=list)
+    avoid: list[str] = field(default_factory=list)
+    qa_checklist: list[str] = field(default_factory=list)
 
     def brief(self) -> str:
         """Kompakter Prompt-Block mit allen Regeln dieser Buchart."""
@@ -74,7 +74,7 @@ class Genre:
         return "\n".join(lines)
 
 
-def _validate(data: Dict[str, Any], source: Path) -> None:
+def _validate(data: dict[str, Any], source: Path) -> None:
     missing = [k for k in _REQUIRED if k not in data]
     if missing:
         raise GenreError(f"{source.name}: Pflichtfelder fehlen: {missing}")
@@ -83,9 +83,13 @@ def _validate(data: Dict[str, Any], source: Path) -> None:
         raise GenreError(f"{source.name}: Beat-Anteile summieren sich zu {total:.2f}, nicht 1.0")
 
 
-def load_genre(genre_id: str, directory: Optional[Path] = None) -> Genre:
+def load_genre(genre_id: str, directory: Path | None = None) -> Genre:
     path = next(
-        (d / f"{genre_id}.yaml" for d in _search_dirs(directory) if (d / f"{genre_id}.yaml").exists()),
+        (
+            d / f"{genre_id}.yaml"
+            for d in _search_dirs(directory)
+            if (d / f"{genre_id}.yaml").exists()
+        ),
         None,
     )
     if path is None:
@@ -97,9 +101,9 @@ def load_genre(genre_id: str, directory: Optional[Path] = None) -> Genre:
     return Genre(**{k: v for k, v in data.items() if k in known_fields})
 
 
-def list_genre_ids(directory: Optional[Path] = None) -> List[str]:
+def list_genre_ids(directory: Path | None = None) -> list[str]:
     return sorted({p.stem for d in _search_dirs(directory) for p in d.glob("*.yaml")})
 
 
-def all_genres(directory: Optional[Path] = None) -> List[Genre]:
+def all_genres(directory: Path | None = None) -> list[Genre]:
     return [load_genre(g, directory) for g in list_genre_ids(directory)]

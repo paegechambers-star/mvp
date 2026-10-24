@@ -17,10 +17,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel
 
 from godai.modules.dispatch_bridge import CommandExpiredError, DispatchBridge
@@ -35,10 +42,11 @@ router = APIRouter(prefix="/mobile", tags=["mobile-dispatch"])
 # Request / response models
 # ------------------------------------------------------------------
 
+
 class DispatchRequest(BaseModel):
     user_id: str
     payload: str
-    context: Optional[Dict[str, Any]] = None
+    context: dict[str, Any] | None = None
     ttl_seconds: int = 300
 
 
@@ -51,7 +59,8 @@ class ResultPost(BaseModel):
 # Helpers
 # ------------------------------------------------------------------
 
-def _extract_token(authorization: Optional[str]) -> Optional[str]:
+
+def _extract_token(authorization: str | None) -> str | None:
     if not authorization:
         return None
     parts = authorization.split()
@@ -72,6 +81,7 @@ def _source_from_request(request: Request) -> str:
 # Endpoint factory
 # ------------------------------------------------------------------
 
+
 def build_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
     """Return a fully-wired mobile-dispatch router."""
 
@@ -79,7 +89,7 @@ def build_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
     async def dispatch_command(
         body: DispatchRequest,
         request: Request,
-        authorization: Optional[str] = Header(default=None),
+        authorization: str | None = Header(default=None),
     ):
         """
         Mobile/chat client submits a command for desktop Claude to execute.
@@ -120,7 +130,7 @@ def build_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
 
     @router.get("/pending")
     async def get_pending(
-        authorization: Optional[str] = Header(default=None),
+        authorization: str | None = Header(default=None),
     ):
         """Desktop agent polls for pending commands it should execute."""
         token = _extract_token(authorization)
@@ -142,7 +152,7 @@ def build_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
     async def post_result(
         command_id: UUID,
         body: ResultPost,
-        authorization: Optional[str] = Header(default=None),
+        authorization: str | None = Header(default=None),
     ):
         """Desktop agent posts the result of an executed command."""
         token = _extract_token(authorization)
@@ -169,7 +179,7 @@ def build_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
     @router.get("/result/{command_id}")
     async def get_result(
         command_id: UUID,
-        authorization: Optional[str] = Header(default=None),
+        authorization: str | None = Header(default=None),
     ):
         """
         Mobile client polls for the result of a previously dispatched command.

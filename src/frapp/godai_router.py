@@ -1,12 +1,14 @@
 """FastAPI router exposing G.O.D.A.I. pipeline over HTTP (B4 + Q4 SSE streaming)."""
+
 from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -22,7 +24,7 @@ _logger = logging.getLogger("frapp.godai_router")
 router = APIRouter(prefix="/v1/godai", tags=["G.O.D.A.I."])
 
 # Singleton pipeline — created once at first request
-_pipeline: Optional[GodaiPipeline] = None
+_pipeline: GodaiPipeline | None = None
 
 
 def _get_pipeline() -> GodaiPipeline:
@@ -62,18 +64,18 @@ class TokenResponse(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    token: Optional[str] = None
+    token: str | None = None
     user_id: str
     protocol: str = "http"
     query: str
-    context: Optional[Dict[str, Any]] = None
+    context: dict[str, Any] | None = None
 
 
 class QueryResponse(BaseModel):
     success: bool
-    output: Optional[str]
-    error: Optional[str]
-    model_id: Optional[str]
+    output: str | None
+    error: str | None
+    model_id: str | None
     timestamp: datetime
 
 
@@ -82,16 +84,17 @@ class AuditEntry(BaseModel):
     event_type: str
     source_module: str
     timestamp: datetime
-    event_data: Dict[str, Any]
+    event_data: dict[str, Any]
 
 
 class AuditResponse(BaseModel):
-    entries: List[AuditEntry]
+    entries: list[AuditEntry]
     total: int
     chain_valid: bool
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/query",
@@ -172,16 +175,16 @@ class StatusResponse(BaseModel):
     provider: str
 
 
-@router.get("/status", response_model=StatusResponse, summary="Pipeline health and audit chain status")
+@router.get(
+    "/status", response_model=StatusResponse, summary="Pipeline health and audit chain status"
+)
 def godai_status():
     pipeline = _get_pipeline()
     try:
         chain_valid = pipeline.mnemosyne.verify_chain()
     except Exception:
         chain_valid = False
-    provider_name = (
-        "AnthropicProvider" if settings.anthropic_api_key else "EchoProvider"
-    )
+    provider_name = "AnthropicProvider" if settings.anthropic_api_key else "EchoProvider"
     return {
         "status": "ok",
         "audit_entries": len(pipeline.mnemosyne),
@@ -198,7 +201,7 @@ def godai_status():
 def godai_audit(limit: int = 50, offset: int = 0):
     pipeline = _get_pipeline()
     all_entries = pipeline.mnemosyne.entries
-    page = all_entries[offset: offset + limit]
+    page = all_entries[offset : offset + limit]
     try:
         chain_valid = pipeline.mnemosyne.verify_chain()
     except Exception:

@@ -22,7 +22,7 @@ import os
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _KEYRING_SERVICE = "scriptor"
 _KEYRING_USER = "anthropic_api_key"
@@ -51,9 +51,9 @@ class Settings:
     # Jeder Claude-Aufruf läuft durch G.O.D.A.I. (HERMES/THEMIS/MNEMOSYNE)
     governance: bool = True
     # Ordner-Plugins laufen nur, wenn ihr Name hier steht (beliebiger Code!)
-    enabled_plugins: List[str] = field(default_factory=list)
+    enabled_plugins: list[str] = field(default_factory=list)
     # Docks (eingebaut / Entry-Point), die abgeschaltet sind
-    disabled_docks: List[str] = field(default_factory=list)
+    disabled_docks: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
 
@@ -62,8 +62,8 @@ class Settings:
         return config_dir() / "settings.json"
 
     @classmethod
-    def load(cls) -> "Settings":
-        data: Dict[str, Any] = {}
+    def load(cls) -> Settings:
+        data: dict[str, Any] = {}
         if cls.path().exists():
             data = json.loads(cls.path().read_text(encoding="utf-8"))
         known = cls.__dataclass_fields__
@@ -74,7 +74,9 @@ class Settings:
 
     def save(self) -> None:
         self.path().parent.mkdir(parents=True, exist_ok=True)
-        self.path().write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
+        self.path().write_text(
+            json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     def workspace_path(self) -> Path:
         env = os.environ.get("SCRIPTOR_HOME")
@@ -99,7 +101,7 @@ def _keyring() -> Any:
         return None
 
 
-def get_api_key() -> Optional[str]:
+def get_api_key() -> str | None:
     if os.environ.get("ANTHROPIC_API_KEY"):
         return os.environ["ANTHROPIC_API_KEY"]
     kr = _keyring()
@@ -108,7 +110,7 @@ def get_api_key() -> Optional[str]:
     try:
         value = kr.get_password(_KEYRING_SERVICE, _KEYRING_USER)
         return str(value) if value else None
-    except Exception:  # noqa: BLE001 - kein Tresor verfügbar
+    except Exception:
         return None
 
 
@@ -123,7 +125,7 @@ def set_api_key(key: str) -> bool:
         else:
             kr.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
         return True
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False
 
 

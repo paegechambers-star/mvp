@@ -6,6 +6,7 @@ In production (ENV=production) every log line is a JSON object — easy to
 ingest into ELK, Grafana Loki, or CloudWatch.
 In dev mode the output is coloured human-readable text.
 """
+
 from __future__ import annotations
 
 import logging

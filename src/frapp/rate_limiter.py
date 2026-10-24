@@ -16,6 +16,7 @@ Then decorate endpoints:
     async def query(request: Request, ...):
         ...
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,10 +30,13 @@ _logger = logging.getLogger("frapp.rate_limiter")
 def _build_limiter():
     try:
         from slowapi import Limiter  # type: ignore[import]
+
         from frapp.settings import settings
 
         def _key_from_api_key(request: Request) -> str:
-            return request.headers.get("X-API-Key") or (request.client.host if request.client else "unknown")
+            return request.headers.get("X-API-Key") or (
+                request.client.host if request.client else "unknown"
+            )
 
         storage_uri = settings.redis_url if settings.redis_url else "memory://"
         lim = Limiter(key_func=_key_from_api_key, storage_uri=storage_uri)

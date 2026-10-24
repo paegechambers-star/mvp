@@ -17,8 +17,9 @@ Sicherheitsgrenzen:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from scriptor.docks import DockRegistry
 from scriptor.genres import all_genres
@@ -26,7 +27,7 @@ from scriptor.ghostwriter import Ghostwriter, load_config
 from scriptor.llm import LLM, AgentTurn
 from scriptor.project import BookProject, ProjectError, _dump
 
-Approve = Callable[[str, Dict[str, Any]], bool]
+Approve = Callable[[str, dict[str, Any]], bool]
 
 SYSTEM_PROMPT = """\
 Du bist SCRIPTOR, der persönliche KI-Arbeitsagent von Chambi (Lucas). Schwerpunkt: \
@@ -51,7 +52,9 @@ Zugriff auf E-Mail, Kalender, Shell oder fremde Dateien.
 """
 
 
-def _tool(name: str, description: str, props: Dict[str, Any], required: List[str]) -> Dict[str, Any]:
+def _tool(
+    name: str, description: str, props: dict[str, Any], required: list[str]
+) -> dict[str, Any]:
     return {
         "name": name,
         "description": description,
@@ -68,7 +71,7 @@ _S = {"type": "string"}
 _I = {"type": "integer"}
 _SLUG = {"type": "string", "description": "Projekt-Slug aus list_books"}
 
-TOOLS: List[Dict[str, Any]] = [
+TOOLS: list[dict[str, Any]] = [
     _tool("list_genres", "Listet alle Bucharten mit ID, Name, Zielgruppe und Umfang.", {}, []),
     _tool("list_books", "Listet alle Buchprojekte im Workspace.", {}, []),
     _tool(
@@ -77,40 +80,83 @@ TOOLS: List[Dict[str, Any]] = [
         {"title": _S, "genre": _S, "idea": _S, "author": _S},
         ["title", "genre", "idea"],
     ),
-    _tool("book_status", "Status eines Buchs: Bible, Outline, Kapitel, Scores, Wortzahlen.",
-          {"slug": _SLUG}, ["slug"]),
-    _tool("show_ssot", "Zeigt eine SSOT-Datei (bible | outline | voice) eines Buchs.",
-          {"slug": _SLUG, "name": {"type": "string", "enum": ["bible", "outline", "voice"]}},
-          ["slug", "name"]),
-    _tool("develop_bible", "Entwickelt die Bible (Prämisse, Figuren, Regeln) per Claude. Teuer.",
-          {"slug": _SLUG, "notes": _S}, ["slug"]),
-    _tool("develop_outline", "Erstellt den Kapitelplan. chapters optional (sonst Genre-Standard).",
-          {"slug": _SLUG, "chapters": _I}, ["slug"]),
-    _tool("draft_chapter", "Schreibt einen neuen Entwurf eines Kapitels.",
-          {"slug": _SLUG, "nr": _I}, ["slug", "nr"]),
-    _tool("review_chapter", "Unabhängiges Lektorat + Gate-Entscheidung für die neueste Fassung.",
-          {"slug": _SLUG, "nr": _I}, ["slug", "nr"]),
-    _tool("revise_chapter", "Überarbeitet ein Kapitel auf Basis des Lektorats + Anweisungen.",
-          {"slug": _SLUG, "nr": _I, "instructions": _S}, ["slug", "nr"]),
-    _tool("write_book", "Komplettlauf Entwurf→Lektorat→Revision für Kapitel start..end. Sehr teuer.",
-          {"slug": _SLUG, "start": _I, "end": _I}, ["slug"]),
+    _tool(
+        "book_status",
+        "Status eines Buchs: Bible, Outline, Kapitel, Scores, Wortzahlen.",
+        {"slug": _SLUG},
+        ["slug"],
+    ),
+    _tool(
+        "show_ssot",
+        "Zeigt eine SSOT-Datei (bible | outline | voice) eines Buchs.",
+        {"slug": _SLUG, "name": {"type": "string", "enum": ["bible", "outline", "voice"]}},
+        ["slug", "name"],
+    ),
+    _tool(
+        "develop_bible",
+        "Entwickelt die Bible (Prämisse, Figuren, Regeln) per Claude. Teuer.",
+        {"slug": _SLUG, "notes": _S},
+        ["slug"],
+    ),
+    _tool(
+        "develop_outline",
+        "Erstellt den Kapitelplan. chapters optional (sonst Genre-Standard).",
+        {"slug": _SLUG, "chapters": _I},
+        ["slug"],
+    ),
+    _tool(
+        "draft_chapter",
+        "Schreibt einen neuen Entwurf eines Kapitels.",
+        {"slug": _SLUG, "nr": _I},
+        ["slug", "nr"],
+    ),
+    _tool(
+        "review_chapter",
+        "Unabhängiges Lektorat + Gate-Entscheidung für die neueste Fassung.",
+        {"slug": _SLUG, "nr": _I},
+        ["slug", "nr"],
+    ),
+    _tool(
+        "revise_chapter",
+        "Überarbeitet ein Kapitel auf Basis des Lektorats + Anweisungen.",
+        {"slug": _SLUG, "nr": _I, "instructions": _S},
+        ["slug", "nr"],
+    ),
+    _tool(
+        "write_book",
+        "Komplettlauf Entwurf→Lektorat→Revision für Kapitel start..end. Sehr teuer.",
+        {"slug": _SLUG, "start": _I, "end": _I},
+        ["slug"],
+    ),
     _tool(
         "update_bible",
         "SSOT-Commit auf die Bible. patch_yaml = YAML-Mapping der zu ändernden Top-Level-Felder. "
         "kind PATCH (mergen) oder SUPERSEDE (ersetzen). reason ist Pflicht.",
-        {"slug": _SLUG, "patch_yaml": _S, "reason": _S,
-         "kind": {"type": "string", "enum": ["PATCH", "SUPERSEDE"]}},
+        {
+            "slug": _SLUG,
+            "patch_yaml": _S,
+            "reason": _S,
+            "kind": {"type": "string", "enum": ["PATCH", "SUPERSEDE"]},
+        },
         ["slug", "patch_yaml", "reason"],
     ),
-    _tool("book_material", "Erzeugt Begleitmaterial (expose, synopsis, klappentext, query_letter, "
-          "social_media, leseprobe_intro, kapitel_inhaltsverzeichnis) als Datei.",
-          {"slug": _SLUG, "kind": _S}, ["slug", "kind"]),
+    _tool(
+        "book_material",
+        "Erzeugt Begleitmaterial (expose, synopsis, klappentext, query_letter, "
+        "social_media, leseprobe_intro, kapitel_inhaltsverzeichnis) als Datei.",
+        {"slug": _SLUG, "kind": _S},
+        ["slug", "kind"],
+    ),
     _tool("export_book", "Exportiert das Manuskript als Markdown.", {"slug": _SLUG}, ["slug"]),
     _tool("list_files", "Listet Dateien unter einem Workspace-Pfad.", {"path": _S}, []),
     _tool("read_file", "Liest eine Textdatei im Workspace.", {"path": _S}, ["path"]),
-    _tool("write_file", "Schreibt eine Textdatei im Workspace (legt Ordner an, überschreibt nicht "
-          "— existiert die Datei, wird ein Versions-Suffix angehängt).",
-          {"path": _S, "content": _S}, ["path", "content"]),
+    _tool(
+        "write_file",
+        "Schreibt eine Textdatei im Workspace (legt Ordner an, überschreibt nicht "
+        "— existiert die Datei, wird ein Versions-Suffix angehängt).",
+        {"path": _S, "content": _S},
+        ["path", "content"],
+    ),
 ]
 
 
@@ -125,11 +171,11 @@ class Agent:
         self,
         llm: LLM,
         workspace: Path,
-        approve: Optional[Approve] = None,
+        approve: Approve | None = None,
         web_search: bool = False,
-        config: Optional[Dict[str, Any]] = None,
-        on_event: Optional[Callable[[str, str], None]] = None,
-        docks: Optional[DockRegistry] = None,
+        config: dict[str, Any] | None = None,
+        on_event: Callable[[str, str], None] | None = None,
+        docks: DockRegistry | None = None,
     ) -> None:
         self.llm = llm
         self.workspace = workspace.resolve()
@@ -138,9 +184,9 @@ class Agent:
         self.gw = Ghostwriter(llm, self.cfg)
         self.approve = approve or (lambda name, args: True)
         self.on_event = on_event or (lambda kind, text: None)
-        self.messages: List[Dict[str, Any]] = []
+        self.messages: list[dict[str, Any]] = []
         self.docks = docks or DockRegistry()
-        self.materials: Dict[str, str] = {**self.cfg["materials"], **self.docks.materials}
+        self.materials: dict[str, str] = {**self.cfg["materials"], **self.docks.materials}
         self.confirm_tools = set(self.cfg["agent"]["confirm_tools"]) | {
             n for n, t in self.docks.tools.items() if t.confirm
         }
@@ -150,11 +196,13 @@ class Agent:
             raise ValueError(f"Dock-Werkzeuge überschreiben eingebaute Werkzeuge: {sorted(clash)}")
         self.tools = list(TOOLS) + [t.schema for t in self.docks.tools.values()]
         if web_search:
-            self.tools.append({
-                "type": "web_search_20260209",
-                "name": "web_search",
-                "max_uses": int(self.cfg["agent"]["web_search_max_uses"]),
-            })
+            self.tools.append(
+                {
+                    "type": "web_search_20260209",
+                    "name": "web_search",
+                    "max_uses": int(self.cfg["agent"]["web_search_max_uses"]),
+                }
+            )
 
     # ------------------------------------------------------------------
     # Loop
@@ -164,45 +212,54 @@ class Agent:
         """Ein Auftrag (append-only Historie; mehrere Aufrufe = Chat)."""
         self.messages.append({"role": "user", "content": task})
         max_steps = int(self.cfg["agent"]["max_steps"])
-        turn: Optional[AgentTurn] = None
+        turn: AgentTurn | None = None
         for _ in range(max_steps):
             turn = self.llm.agent_turn(
                 SYSTEM_PROMPT, self.messages, self.tools, effort=self.cfg["effort"]["agent"]
             )
             self.messages.append({"role": "assistant", "content": turn.content})
             if turn.text and turn.stop_reason in ("tool_use", "pause_turn"):
-                self.on_event("text", turn.text)  # Zwischenstand; die Schlussantwort ist der Rückgabewert
+                self.on_event(
+                    "text", turn.text
+                )  # Zwischenstand; die Schlussantwort ist der Rückgabewert
             if turn.stop_reason == "pause_turn":
                 continue  # serverseitiges Werkzeug (Websuche) läuft weiter
             if turn.stop_reason != "tool_use":
                 return turn.text
             results = []
             for call in turn.tool_calls:
-                self.on_event("tool", f"{call['name']} {json.dumps(call['input'], ensure_ascii=False)}")
+                self.on_event(
+                    "tool", f"{call['name']} {json.dumps(call['input'], ensure_ascii=False)}"
+                )
                 output, is_error = self._execute(call["name"], dict(call["input"]))
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": call["id"],
-                    "content": output,
-                    "is_error": is_error,
-                })
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": call["id"],
+                        "content": output,
+                        "is_error": is_error,
+                    }
+                )
             self.messages.append({"role": "user", "content": results})
         return (turn.text if turn else "") + f"\n[Abbruch: max. {max_steps} Schritte erreicht]"
 
-    def _execute(self, name: str, args: Dict[str, Any]) -> tuple[str, bool]:
+    def _execute(self, name: str, args: dict[str, Any]) -> tuple[str, bool]:
         dock_tool = self.docks.tools.get(name)
-        handler: Optional[Callable[..., Any]] = getattr(self, f"_t_{name}", None)
+        handler: Callable[..., Any] | None = getattr(self, f"_t_{name}", None)
         if dock_tool is not None:
-            handler = lambda **kw: dock_tool.handler(self, **kw)  # noqa: E731
+            handler = lambda **kw: dock_tool.handler(self, **kw)
         if handler is None:
             return f"Unbekanntes Werkzeug: {name}", True
         if name in self.confirm_tools and not self.approve(name, args):
-            return "Vom Nutzer abgelehnt. Nicht erneut versuchen; nachfragen, was stattdessen.", True
+            return (
+                "Vom Nutzer abgelehnt. Nicht erneut versuchen; nachfragen, was stattdessen.",
+                True,
+            )
         try:
             return str(handler(**args)), False
         except (ProjectError, WorkspaceError, ValueError, KeyError, TypeError, OSError) as exc:
             return f"{type(exc).__name__}: {exc}", True
-        except Exception as exc:  # noqa: BLE001 - Plugin-Fehler dürfen den Agenten nicht beenden
+        except Exception as exc:
             if dock_tool is None:
                 raise
             return f"Plugin '{dock_tool.dock}' fehlgeschlagen: {type(exc).__name__}: {exc}", True
@@ -249,7 +306,7 @@ class Agent:
         rid = self.gw.develop_bible(self._book(slug), notes)
         return f"Bible committed ({rid}).\n" + _dump(self._book(slug).bible)
 
-    def _t_develop_outline(self, slug: str, chapters: Optional[int] = None) -> str:
+    def _t_develop_outline(self, slug: str, chapters: int | None = None) -> str:
         p = self._book(slug)
         rid = self.gw.develop_outline(p, chapters)
         lines = [f"{c['nr']}. {c['title']} [{c['beat']}] – {c['summary']}" for c in p.outline]
@@ -266,14 +323,16 @@ class Agent:
         issues = "\n".join(
             f"- [{i['severity']}] {i['problem']} → {i['fix']}" for i in review.get("issues", [])
         )
-        return (f"Kapitel {nr} v{r.version}: {r.verdict} (Score {r.score})\n"
-                f"Gate: {r.reasons or 'ok'}\nBefunde:\n{issues or '—'}")
+        return (
+            f"Kapitel {nr} v{r.version}: {r.verdict} (Score {r.score})\n"
+            f"Gate: {r.reasons or 'ok'}\nBefunde:\n{issues or '—'}"
+        )
 
     def _t_revise_chapter(self, slug: str, nr: int, instructions: str = "") -> str:
         v = self.gw.revise_chapter(self._book(slug), nr, instructions)
         return f"Kapitel {nr} v{v} überarbeitet. Erneut review_chapter ausführen."
 
-    def _t_write_book(self, slug: str, start: int = 1, end: Optional[int] = None) -> str:
+    def _t_write_book(self, slug: str, start: int = 1, end: int | None = None) -> str:
         results = self.gw.write_book(self._book(slug), start, end)
         return "\n".join(
             f"Kap. {r.nr} v{r.version}: {r.verdict} ({r.score}) {'; '.join(r.reasons)}"
@@ -285,7 +344,8 @@ class Agent:
 
         data = yaml.safe_load(patch_yaml)
         if not isinstance(data, dict):
-            raise ValueError("patch_yaml muss ein YAML-Mapping sein")
+            # ValueError (nicht TypeError): ungültige Nutzereingabe, vom Agenten als Werkzeugfehler gemeldet
+            raise ValueError("patch_yaml muss ein Mapping sein")  # noqa: TRY004
         if kind == "PATCH" and "meta" in data:
             raise ValueError("meta ist schreibgeschützt")
         return f"SSOT-Commit {self._book(slug).commit_ssot('bible', data, reason, kind)}"
@@ -332,7 +392,9 @@ class Agent:
     def _t_write_file(self, path: str, content: str) -> str:
         target = self._safe(path)
         if "books" in target.relative_to(self.workspace).parts[:1] and "ssot" in target.parts:
-            raise WorkspaceError("SSOT-Dateien nur über update_bible / Entwicklungswerkzeuge ändern")
+            raise WorkspaceError(
+                "SSOT-Dateien nur über update_bible / Entwicklungswerkzeuge ändern"
+            )
         target.parent.mkdir(parents=True, exist_ok=True)
         n = 2
         final = target

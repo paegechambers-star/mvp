@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse
 
 router = APIRouter(tags=["chat-ui"])
 
-_CHAT_HTML = """<!DOCTYPE html>
+_CHAT_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">

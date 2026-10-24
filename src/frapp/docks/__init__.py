@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, List, Optional
+from typing import Any
 
 _log = logging.getLogger("frapp.docks")
 
@@ -32,27 +32,29 @@ class Dock:
     def mount(self, app: Any) -> None:
         """Optional: Routen in die FraPP-API einhängen."""
 
-    def cli(self) -> Optional[Any]:
+    def cli(self) -> Any | None:
         """Optional: Typer-App für ``frapp <name>``."""
         return None
 
 
-def builtin_docks() -> List[Dock]:
+def builtin_docks() -> list[Dock]:
     from .scriptor import ScriptorDock
 
     return [ScriptorDock()]
 
 
-def load_docks(candidates: Optional[List[Dock]] = None) -> List[Dock]:
+def load_docks(candidates: list[Dock] | None = None) -> list[Dock]:
     """Lädt alle Docks; fehlerhafte werden geloggt und übersprungen."""
-    disabled = {d.strip() for d in os.environ.get("FRAPP_DISABLED_DOCKS", "").split(",") if d.strip()}
-    loaded: List[Dock] = []
+    disabled = {
+        d.strip() for d in os.environ.get("FRAPP_DISABLED_DOCKS", "").split(",") if d.strip()
+    }
+    loaded: list[Dock] = []
     for dock in candidates if candidates is not None else builtin_docks():
         if dock.name in disabled:
             continue
         try:
             if dock.load():
                 loaded.append(dock)
-        except Exception as exc:  # noqa: BLE001 - Dock-Isolation
+        except Exception as exc:
             _log.warning("Dock %s nicht geladen: %s", dock.name, exc)
     return loaded

@@ -27,13 +27,19 @@ def test_agent_runs_book_tools(workspace):
         _turn(_call(1, "create_book", title="Test Buch", genre="kinderroman", idea="Drache")),
         _turn(_call(2, "develop_bible", slug="test-buch"), _call(3, "list_books")),
         _turn(_call(4, "book_material", slug="test-buch", kind="klappentext")),
-        AgentTurn(content=[{"type": "text", "text": "Erledigt."}], stop_reason="end_turn", text="Erledigt."),
+        AgentTurn(
+            content=[{"type": "text", "text": "Erledigt."}],
+            stop_reason="end_turn",
+            text="Erledigt.",
+        ),
     ]
     agent = Agent(llm, workspace)
     assert agent.run("Leg ein Buch an") == "Erledigt."
     results = _results(llm)
     assert not any(r["is_error"] for r in results), results
-    assert len([r for r in results if r["tool_use_id"] in ("t2", "t3")]) == 2  # parallel in 1 Message
+    assert (
+        len([r for r in results if r["tool_use_id"] in ("t2", "t3")]) == 2
+    )  # parallel in 1 Message
     assert (workspace / "books/test-buch/export/klappentext.md").exists()
 
 
@@ -43,8 +49,10 @@ def test_agent_blocks_path_escape_and_ssot_writes(workspace):
         _turn(_call(1, "read_file", path="../../etc/passwd")),
         _turn(_call(2, "create_book", title="B", genre="roman", idea="x")),
         _turn(_call(3, "write_file", path="books/b/ssot/bible.yaml", content="hack")),
-        _turn(_call(4, "write_file", path="notes/a.md", content="eins"),
-              _call(5, "write_file", path="notes/a.md", content="zwei")),
+        _turn(
+            _call(4, "write_file", path="notes/a.md", content="eins"),
+            _call(5, "write_file", path="notes/a.md", content="zwei"),
+        ),
     ]
     agent = Agent(llm, workspace)
     agent.run("x")
@@ -73,9 +81,11 @@ def test_update_bible_and_unknown_tool(workspace):
     llm = make_llm()
     llm._script = [
         _turn(_call(1, "create_book", title="D", genre="roman", idea="x")),
-        _turn(_call(2, "update_bible", slug="d", patch_yaml="tone: düster", reason="Autorwunsch"),
-              _call(3, "update_bible", slug="d", patch_yaml="meta: {}", reason="x"),
-              _call(4, "rm_rf")),
+        _turn(
+            _call(2, "update_bible", slug="d", patch_yaml="tone: düster", reason="Autorwunsch"),
+            _call(3, "update_bible", slug="d", patch_yaml="meta: {}", reason="x"),
+            _call(4, "rm_rf"),
+        ),
     ]
     agent = Agent(llm, workspace)
     agent.run("x")

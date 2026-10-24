@@ -52,26 +52,51 @@ from contextos.types import (
     WorkEntry,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - thematisch gruppiert, nicht alphabetisch
     # Types
     "BASE36",
-    "Kind", "Actor", "Cluster", "EntryType", "TruthGate", "CommitOp",
-    "ContextID", "Citation", "SSOTEntry", "WorkEntry", "CommitBlock",
+    "Kind",
+    "Actor",
+    "Cluster",
+    "EntryType",
+    "TruthGate",
+    "CommitOp",
+    "ContextID",
+    "Citation",
+    "SSOTEntry",
+    "WorkEntry",
+    "CommitBlock",
     # ID generator
-    "generate_id", "validate_id", "parse_id", "compute_checksum",
-    "encode_b36", "decode_b36", "encode_time_bucket", "next_sequence",
+    "generate_id",
+    "validate_id",
+    "parse_id",
+    "compute_checksum",
+    "encode_b36",
+    "decode_b36",
+    "encode_time_bucket",
+    "next_sequence",
     # Store
-    "write_blob", "read_blob", "sha256_of", "blob_exists",
+    "write_blob",
+    "read_blob",
+    "sha256_of",
+    "blob_exists",
     # Log
-    "ContextOSLog", "LogEntry", "TamperDetectedError",
+    "ContextOSLog",
+    "LogEntry",
+    "TamperDetectedError",
     # Commit
-    "make_commit", "patch_commit", "supersede_commit", "promote_commit", "deprecate_commit",
+    "make_commit",
+    "patch_commit",
+    "supersede_commit",
+    "promote_commit",
+    "deprecate_commit",
     # Register
     "Register",
     # Index
     "ContextOSIndex",
     # Resolver
-    "Resolver", "QueryResult",
+    "Resolver",
+    "QueryResult",
     # Runner
     "MKIDRunner",
 ]

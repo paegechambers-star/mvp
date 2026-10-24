@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from contextos.index import ContextOSIndex
 from contextos.types import Cluster
 from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
@@ -57,10 +55,11 @@ def test_active_ssot_excludes_superseded(index: ContextOSIndex):
     nkid1 = make_nkid(0)
     nkid2 = make_nkid(1)
     from tests.contextos_tests.conftest import make_ssot
-    from contextos.types import SSOTEntry
+
     entry1 = make_ssot(nkid1)
     # Create a superseded variant
     import dataclasses
+
     superseded = dataclasses.replace(entry1, superseded_by=nkid2)
     index.add_ssot(superseded)
     index.add_ssot(make_ssot(nkid2))

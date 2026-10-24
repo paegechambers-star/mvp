@@ -1,17 +1,17 @@
 import sys
-import os
 from logging.config import fileConfig
 from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
 # Make src/ importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from frapp.settings import settings  # noqa: E402
-from frapp.models import Event  # noqa: E402  — registers SQLModel metadata
-from sqlmodel import SQLModel  # noqa: E402
+from sqlmodel import SQLModel
+
+from frapp.settings import settings
 
 config = context.config
 

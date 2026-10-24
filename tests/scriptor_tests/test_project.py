@@ -38,8 +38,12 @@ def test_chapter_versions_never_overwrite(project):
 
 
 def test_export_requires_all_chapters(project):
-    project.commit_ssot("outline", {"chapters": [{"nr": 1, "title": "A"}, {"nr": 2, "title": "B"}]},
-                        reason="t", kind="SUPERSEDE")
+    project.commit_ssot(
+        "outline",
+        {"chapters": [{"nr": 1, "title": "A"}, {"nr": 2, "title": "B"}]},
+        reason="t",
+        kind="SUPERSEDE",
+    )
     project.write_chapter(1, "Text eins", "d")
     with pytest.raises(ProjectError, match=r"\[2\]"):
         project.export_markdown()

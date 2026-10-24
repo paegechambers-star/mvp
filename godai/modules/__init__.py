@@ -1,22 +1,22 @@
 """G.O.D.A.I. module implementations (HERMES, THEMIS, APOLLON, ATHENA, MNEMOSYNE)."""
 
-from godai.modules.mnemosyne import Mnemosyne, TamperDetectedError
-from godai.modules.hermes import AuthenticationError, Hermes, RateLimitError
-from godai.modules.themis import PolicyEvaluationError, PolicyLoadError, Themis
 from godai.modules.apollon import Apollon, RoutingConfigError
 from godai.modules.athena import Athena, ValidatorModelError
+from godai.modules.hermes import AuthenticationError, Hermes, RateLimitError
+from godai.modules.mnemosyne import Mnemosyne, TamperDetectedError
+from godai.modules.themis import PolicyEvaluationError, PolicyLoadError, Themis
 
 __all__ = [
-    "Mnemosyne",
-    "TamperDetectedError",
+    "Apollon",
+    "Athena",
     "AuthenticationError",
     "Hermes",
-    "RateLimitError",
+    "Mnemosyne",
     "PolicyEvaluationError",
     "PolicyLoadError",
-    "Themis",
-    "Apollon",
+    "RateLimitError",
     "RoutingConfigError",
-    "Athena",
+    "TamperDetectedError",
+    "Themis",
     "ValidatorModelError",
 ]

@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from collections.abc import Coroutine
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Coroutine, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 from scriptor.llm import LLM, AgentTurn, LLMError
 
@@ -38,7 +39,7 @@ class GodaiGovernance:
 
     def __init__(
         self,
-        policy_path: Optional[Path] = None,
+        policy_path: Path | None = None,
         trust: str = "L2",
         user_id: str = "scriptor",
         rate_limit: int = 100_000,
@@ -71,18 +72,25 @@ class GodaiGovernance:
 
     def check(self, role: str, prompt: str, data_class: str, book: str = "") -> None:
         """HERMES + THEMIS. Wirft :class:`PolicyDenied` bei Ablehnung."""
-        from godai.modules.hermes import AuthenticationError, RateLimitError
-
         from godai.models.request import TrustLevel
-        from godai.modules.hermes import create_token
+        from godai.modules.hermes import (
+            AuthenticationError,
+            RateLimitError,
+            create_token,
+        )
 
         context = {"data_class": data_class, "action": f"scriptor.{role}", "book": book}
         token = create_token(self._user_id, TrustLevel[self._trust], self._secret, expires_hours=1)
         try:
-            request = self._run(self.hermes.normalize(
-                token=token, user_id=self._user_id, protocol="http",
-                query=prompt, context=context,
-            ))
+            request = self._run(
+                self.hermes.normalize(
+                    token=token,
+                    user_id=self._user_id,
+                    protocol="http",
+                    query=prompt,
+                    context=context,
+                )
+            )
         except (AuthenticationError, RateLimitError) as exc:
             self.decisions["denied"] += 1
             raise PolicyDenied(f"G.O.D.A.I./HERMES: {exc}") from exc
@@ -96,27 +104,41 @@ class GodaiGovernance:
         """Ergebnis des Aufrufs in MNEMOSYNE festhalten."""
         from godai.models.audit import AuditEvent
 
-        self._run(self.mnemosyne.append(AuditEvent(
-            event_type="pipeline_success" if ok else "pipeline_error",
-            event_data={"source": "scriptor", "role": role, "model": model, "detail": detail[:300]},
-            source_module="PIPELINE",
-            timestamp=datetime.now(timezone.utc),
-        )))
+        self._run(
+            self.mnemosyne.append(
+                AuditEvent(
+                    event_type="pipeline_success" if ok else "pipeline_error",
+                    event_data={
+                        "source": "scriptor",
+                        "role": role,
+                        "model": model,
+                        "detail": detail[:300],
+                    },
+                    source_module="PIPELINE",
+                    timestamp=datetime.now(timezone.utc),
+                )
+            )
+        )
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         try:
             chain_ok = bool(self.mnemosyne.verify_chain())
-        except Exception:  # noqa: BLE001 - TamperDetectedError
+        except Exception:
             chain_ok = False
-        recent: List[Dict[str, Any]] = []
+        recent: list[dict[str, Any]] = []
         for e in self.mnemosyne.entries[-15:]:
-            recent.append({
-                "ts": e.timestamp.isoformat() if hasattr(e, "timestamp") else "",
-                "module": getattr(e, "source_module", ""),
-                "type": getattr(e, "event_type", ""),
-                "data": {k: v for k, v in (getattr(e, "event_data", {}) or {}).items()
-                         if k in ("allowed", "reason", "role", "model", "data_class", "detail")},
-            })
+            recent.append(
+                {
+                    "ts": e.timestamp.isoformat() if hasattr(e, "timestamp") else "",
+                    "module": getattr(e, "source_module", ""),
+                    "type": getattr(e, "event_type", ""),
+                    "data": {
+                        k: v
+                        for k, v in (getattr(e, "event_data", {}) or {}).items()
+                        if k in ("allowed", "reason", "role", "model", "data_class", "detail")
+                    },
+                }
+            )
         return {
             "active": True,
             "entries": len(self.mnemosyne),
@@ -155,15 +177,28 @@ class GovernedLLM:
         return result
 
     def complete(self, role, system, prompt, *, effort="high", max_tokens=64000) -> str:
-        return str(self._guarded(role, prompt, lambda: self.inner.complete(
-            role, system, prompt, effort=effort, max_tokens=max_tokens)))
+        return str(
+            self._guarded(
+                role,
+                prompt,
+                lambda: self.inner.complete(
+                    role, system, prompt, effort=effort, max_tokens=max_tokens
+                ),
+            )
+        )
 
-    def complete_json(self, role, system, prompt, schema, *, effort="high") -> Dict[str, Any]:
-        return dict(self._guarded(role, prompt, lambda: self.inner.complete_json(
-            role, system, prompt, schema, effort=effort)))
+    def complete_json(self, role, system, prompt, schema, *, effort="high") -> dict[str, Any]:
+        return dict(
+            self._guarded(
+                role,
+                prompt,
+                lambda: self.inner.complete_json(role, system, prompt, schema, effort=effort),
+            )
+        )
 
     def agent_turn(self, system, messages, tools, *, effort="high") -> AgentTurn:
         last = str(messages[-1]["content"]) if messages else ""
-        turn: AgentTurn = self._guarded("agent", last, lambda: self.inner.agent_turn(
-            system, messages, tools, effort=effort))
+        turn: AgentTurn = self._guarded(
+            "agent", last, lambda: self.inner.agent_turn(system, messages, tools, effort=effort)
+        )
         return turn

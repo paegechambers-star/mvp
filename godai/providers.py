@@ -41,7 +41,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from godai.modules.athena import LLMProvider
 
@@ -68,7 +68,7 @@ class EchoProvider:
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """Return prompt verbatim, or a passing verdict for validation calls."""
         _logger.debug("EchoProvider.generate(model=%s, prompt_len=%d)", model_id, len(prompt))
@@ -76,11 +76,13 @@ class EchoProvider:
         # Validation prompts contain structured keywords; return a passing verdict
         validation_keywords = {"verdict", "quality-assurance", "fact-check", "compliance"}
         if any(kw in prompt.lower() for kw in validation_keywords):
-            return json.dumps({
-                "verdict": "pass",
-                "confidence": 0.95,
-                "issues": [],
-            })
+            return json.dumps(
+                {
+                    "verdict": "pass",
+                    "confidence": 0.95,
+                    "issues": [],
+                }
+            )
 
         return prompt
 
@@ -115,7 +117,7 @@ class LoggingProvider:
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """Delegate to inner provider, logging call metadata."""
         _logger.debug(
@@ -184,7 +186,7 @@ class AnthropicProvider:
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """Call the Anthropic Messages API and return the text response."""
         client = self._get_client()
@@ -194,15 +196,18 @@ class AnthropicProvider:
         is_validation = any(kw in prompt.lower() for kw in validation_keywords)
         system: str | None = (
             'Respond ONLY with valid JSON: {"verdict":"pass"|"fail","confidence":0.0-1.0,"issues":[]}'
-            if is_validation else None
+            if is_validation
+            else None
         )
 
         _logger.debug(
             "AnthropicProvider.generate(model=%s, prompt_len=%d, validation=%s)",
-            model_id, len(prompt), is_validation,
+            model_id,
+            len(prompt),
+            is_validation,
         )
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "model": model_id,
             "max_tokens": self._max_tokens,
             "messages": [{"role": "user", "content": prompt}],
@@ -216,8 +221,9 @@ class AnthropicProvider:
         except Exception as exc:
             try:
                 import anthropic as _ant  # type: ignore[import]
+
                 if isinstance(exc, _ant.APIError):
-                    raise RuntimeError(
+                    raise RuntimeError(  # noqa: TRY004 - API-Fehler, kein Typfehler
                         f"Anthropic API error ({type(exc).__name__}): {exc}"
                     ) from exc
             except ImportError:
@@ -230,8 +236,8 @@ class AnthropicProvider:
 # ---------------------------------------------------------------------------
 
 _VALIDATION_SYSTEM = (
-    'You are a JSON-only validation oracle. '
-    'Respond ONLY with valid JSON — no markdown, no explanation: '
+    "You are a JSON-only validation oracle. "
+    "Respond ONLY with valid JSON — no markdown, no explanation: "
     '{"verdict":"pass"|"fail","confidence":0.0-1.0,"issues":[]}'
 )
 
@@ -293,6 +299,7 @@ class OllamaProvider:
         """Return True if the Ollama server is reachable and the model is available."""
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as client:
                 r = await client.get(f"{self._base_url}/api/version")
                 return r.status_code == 200
@@ -303,7 +310,7 @@ class OllamaProvider:
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """
         Generate a response using the local Ollama server.
@@ -315,14 +322,16 @@ class OllamaProvider:
             import httpx
         except ImportError as exc:
             raise ImportError(
-                "httpx is required for OllamaProvider. "
-                "Install it with: pip install httpx"
+                "httpx is required for OllamaProvider. " "Install it with: pip install httpx"
             ) from exc
 
         is_validation = any(kw in prompt.lower() for kw in _VALIDATION_KEYWORDS)
         _logger.debug(
             "OllamaProvider.generate(local=%s, pipeline_model=%s, prompt_len=%d, validation=%s)",
-            self._model, model_id, len(prompt), is_validation,
+            self._model,
+            model_id,
+            len(prompt),
+            is_validation,
         )
 
         messages = []
@@ -330,7 +339,7 @@ class OllamaProvider:
             messages.append({"role": "system", "content": _VALIDATION_SYSTEM})
         messages.append({"role": "user", "content": prompt})
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
             "stream": False,
@@ -396,7 +405,7 @@ class LlamaCppProvider:
         model_path: str,
         n_ctx: int = 2048,
         max_tokens: int = 512,
-        n_threads: Optional[int] = None,
+        n_threads: int | None = None,
         n_gpu_layers: int = 0,
         verbose: bool = False,
     ) -> None:
@@ -418,7 +427,7 @@ class LlamaCppProvider:
                     "Install with: pip install llama-cpp-python"
                 ) from exc
             _logger.info("LlamaCppProvider: loading model from %s …", self._model_path)
-            kwargs: Dict[str, Any] = {
+            kwargs: dict[str, Any] = {
                 "model_path": self._model_path,
                 "n_ctx": self._n_ctx,
                 "n_gpu_layers": self._n_gpu_layers,
@@ -434,7 +443,7 @@ class LlamaCppProvider:
         self,
         model_id: str,
         prompt: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> str:
         """
         Run inference in a thread pool to avoid blocking the async event loop.
@@ -443,13 +452,14 @@ class LlamaCppProvider:
         is_validation = any(kw in prompt.lower() for kw in _VALIDATION_KEYWORDS)
         _logger.debug(
             "LlamaCppProvider.generate(path=%s, pipeline_model=%s, prompt_len=%d, validation=%s)",
-            self._model_path, model_id, len(prompt), is_validation,
+            self._model_path,
+            model_id,
+            len(prompt),
+            is_validation,
         )
 
         if is_validation:
-            full_prompt = (
-                f"[INST] <<SYS>>\n{_VALIDATION_SYSTEM}\n<</SYS>>\n\n{prompt} [/INST]"
-            )
+            full_prompt = f"[INST] <<SYS>>\n{_VALIDATION_SYSTEM}\n<</SYS>>\n\n{prompt} [/INST]"
         else:
             full_prompt = prompt
 

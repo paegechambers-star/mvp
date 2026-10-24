@@ -13,19 +13,22 @@ Invariant 8: ContextOS internal chain integrity verifiable at any time
 
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
-
 import pytest
 
 from contextos.commit import make_commit
 from contextos.id_generator import generate_id, validate_id
-from contextos.log import ContextOSLog, TamperDetectedError
-from contextos.types import Actor, Citation, Cluster, CommitBlock, CommitOp, EntryType, Kind, TruthGate
+from contextos.types import (
+    Actor,
+    Cluster,
+    CommitOp,
+    EntryType,
+    Kind,
+    TruthGate,
+)
 from tests.contextos_tests.conftest import make_mkid, make_nkid, make_ssot, make_work
 
-
 # ── Invariant 1 ───────────────────────────────────────────────────────────────
+
 
 def test_invariant_1_register_log_mutual_dependency(register, cos_log):
     """Every register write produces exactly one log entry."""
@@ -44,6 +47,7 @@ def test_invariant_1_log_always_matches_register(register, cos_log):
 
 # ── Invariant 2 ───────────────────────────────────────────────────────────────
 
+
 def test_invariant_2_ssot_immutable(register):
     """SSOT entries cannot be overwritten via insert_ssot."""
     nkid = make_nkid(10)
@@ -53,6 +57,7 @@ def test_invariant_2_ssot_immutable(register):
 
 
 # ── Invariant 3 ───────────────────────────────────────────────────────────────
+
 
 def test_invariant_3_work_is_mutable(register):
     """WORK entries can be patched (content updated)."""
@@ -75,6 +80,7 @@ def test_invariant_3_promoted_work_cannot_be_patched(register):
 
 # ── Invariant 4 ───────────────────────────────────────────────────────────────
 
+
 def test_invariant_4_no_citation_no_assertion_ssot(register):
     nkid = make_nkid(20)
     with pytest.raises(ValueError, match="No-Citation"):
@@ -90,21 +96,27 @@ def test_invariant_4_empty_but_verified_needs_no_citation(register):
 
 # ── Invariant 5 ───────────────────────────────────────────────────────────────
 
+
 def test_invariant_5_generated_ids_always_valid():
     for i in range(20):
         id_str = generate_id(
-            Kind.NK, Actor.USER, Cluster.GENERAL, EntryType.FACT,
-            TruthGate.UNVERIFIED, time_bucket="0A", sequence=i,
+            Kind.NK,
+            Actor.USER,
+            Cluster.GENERAL,
+            EntryType.FACT,
+            TruthGate.UNVERIFIED,
+            time_bucket="0A",
+            sequence=i,
         )
         assert validate_id(id_str), f"Invalid ID at sequence {i}: {id_str}"
 
 
 # ── Invariant 6 ───────────────────────────────────────────────────────────────
 
+
 def test_invariant_6_godai_import_only_in_bridge():
     """Only godai_audit.py should import from godai; no other contextos module should."""
     import importlib
-    import sys
 
     # Modules that must NOT import godai directly
     forbidden_modules = [
@@ -124,21 +136,24 @@ def test_invariant_6_godai_import_only_in_bridge():
         src = getattr(mod, "__file__", "") or ""
         if src:
             import ast
+
             with open(src) as f:
                 tree = ast.parse(f.read())
             for node in ast.walk(tree):
                 if isinstance(node, (ast.Import, ast.ImportFrom)):
                     names = (
-                        [node.module or ""] if isinstance(node, ast.ImportFrom)
+                        [node.module or ""]
+                        if isinstance(node, ast.ImportFrom)
                         else [alias.name for alias in node.names]
                     )
                     for name in names:
-                        assert not (name or "").startswith("godai"), (
-                            f"{mod_name} illegally imports godai: {name}"
-                        )
+                        assert not (name or "").startswith(
+                            "godai"
+                        ), f"{mod_name} illegally imports godai: {name}"
 
 
 # ── Invariant 7 ───────────────────────────────────────────────────────────────
+
 
 def test_invariant_7_commitblock_frozen():
     cb = make_commit(CommitOp.PATCH, "NK00000000000000", Actor.USER, "a" * 64)
@@ -147,6 +162,7 @@ def test_invariant_7_commitblock_frozen():
 
 
 # ── Invariant 8 ───────────────────────────────────────────────────────────────
+
 
 def test_invariant_8_chain_integrity_after_multiple_writes(register, cos_log):
     for i in range(10):

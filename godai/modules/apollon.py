@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -71,7 +71,7 @@ class Apollon:
         self._mnemosyne = mnemosyne
         self._routing_path = Path(routing_path)
         self._routing_version: str = "unknown"
-        self._routes: List[Dict[str, Any]] = []
+        self._routes: list[dict[str, Any]] = []
         self._default_model: str = ""
         self._default_reason: str = ""
         self._load_routing_config()
@@ -90,14 +90,14 @@ class Apollon:
             ) from exc
 
         try:
-            data: Dict[str, Any] = yaml.safe_load(raw) or {}
+            data: dict[str, Any] = yaml.safe_load(raw) or {}
         except yaml.YAMLError as exc:
             raise RoutingConfigError(
                 f"Invalid YAML in routing config {self._routing_path}: {exc}"
             ) from exc
 
         self._routing_version = str(data.get("version", "unknown"))
-        raw_routes: List[Dict[str, Any]] = data.get("routes", [])
+        raw_routes: list[dict[str, Any]] = data.get("routes", [])
 
         # Separate conditional routes from the default
         self._routes = []
@@ -123,7 +123,7 @@ class Apollon:
             self._routing_version,
         )
 
-    def _build_context(self, request: InternalRequest) -> Dict[str, Any]:
+    def _build_context(self, request: InternalRequest) -> dict[str, Any]:
         """Build evaluation context from InternalRequest."""
         return build_eval_context(
             data_class_value=request.data_class.value,
@@ -161,15 +161,14 @@ class Apollon:
         """
         if not policy_decision.allowed:
             raise ValueError(
-                "APOLLON.route() called on a denied PolicyDecision — "
-                "check pipeline ordering."
+                "APOLLON.route() called on a denied PolicyDecision — " "check pipeline ordering."
             )
 
         ctx = self._build_context(request)
 
-        selected_model: Optional[str] = None
-        selected_reason: Optional[str] = None
-        alternatives: List[str] = []
+        selected_model: str | None = None
+        selected_reason: str | None = None
+        alternatives: list[str] = []
 
         for route in self._routes:
             condition = str(route.get("condition", ""))
@@ -203,19 +202,21 @@ class Apollon:
             routing_version=self._routing_version,
         )
 
-        await self._mnemosyne.append(AuditEvent(
-            event_type="routing",
-            event_data={
-                "request_id": str(request.request_id),
-                "user_id": request.user_id,
-                "model_id": selected_model,
-                "reason": selected_reason,
-                "alternatives": alternatives,
-                "routing_version": self._routing_version,
-            },
-            source_module="APOLLON",
-            timestamp=decision.timestamp,
-        ))
+        await self._mnemosyne.append(
+            AuditEvent(
+                event_type="routing",
+                event_data={
+                    "request_id": str(request.request_id),
+                    "user_id": request.user_id,
+                    "model_id": selected_model,
+                    "reason": selected_reason,
+                    "alternatives": alternatives,
+                    "routing_version": self._routing_version,
+                },
+                source_module="APOLLON",
+                timestamp=decision.timestamp,
+            )
+        )
 
         _logger.info(
             "APOLLON routed request %s → %s (%s)",

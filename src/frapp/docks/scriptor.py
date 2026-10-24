@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import secrets
-from typing import Any, Optional
+from typing import Any
 
 from . import Dock
 
@@ -41,7 +41,7 @@ class ScriptorDock(Dock):
     def url(self, base: str) -> str:
         return f"{base.rstrip('/')}{MOUNT_PATH}/#token={self.token}"
 
-    def cli(self) -> Optional[Any]:
+    def cli(self) -> Any | None:
         from scriptor.cli import build_app
 
         return build_app()

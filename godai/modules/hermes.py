@@ -19,7 +19,7 @@ import hmac
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 from godai.models.audit import AuditEvent
@@ -28,7 +28,7 @@ from godai.modules.mnemosyne import Mnemosyne
 
 _logger = logging.getLogger("godai.hermes")
 
-_TOKEN_TRUST_MAP: Dict[str, TrustLevel] = {
+_TOKEN_TRUST_MAP: dict[str, TrustLevel] = {
     "internal-": TrustLevel.L3,
     "elevated-": TrustLevel.L2,
     "basic-": TrustLevel.L1,
@@ -38,6 +38,7 @@ _JWT_DEFAULT_EXPIRY_HOURS = 24
 
 
 # ── Pure-stdlib JWT (HS256 only) ──────────────────────────────────────────────
+
 
 def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
@@ -81,7 +82,7 @@ def create_token(
     return f"{h}.{p}.{_b64url_encode(sig)}"
 
 
-def _decode_token(token: str, secret_key: str) -> Dict[str, Any]:
+def _decode_token(token: str, secret_key: str) -> dict[str, Any]:
     """
     Decode and verify an HS256 JWT.
 
@@ -100,7 +101,7 @@ def _decode_token(token: str, secret_key: str) -> Dict[str, Any]:
     if not hmac.compare_digest(expected_sig, actual_sig):
         raise ValueError("JWT signature verification failed")
 
-    payload: Dict[str, Any] = json.loads(_b64url_decode(p_raw))
+    payload: dict[str, Any] = json.loads(_b64url_decode(p_raw))
 
     exp = payload.get("exp")
     if exp is not None and int(datetime.now(timezone.utc).timestamp()) > exp:
@@ -111,6 +112,7 @@ def _decode_token(token: str, secret_key: str) -> Dict[str, Any]:
 
 # ── Errors ────────────────────────────────────────────────────────────────────
 
+
 class AuthenticationError(Exception):
     """Raised when authentication fails (HTTP 401 equivalent)."""
 
@@ -120,6 +122,7 @@ class RateLimitError(Exception):
 
 
 # ── HERMES ────────────────────────────────────────────────────────────────────
+
 
 class Hermes:
     """
@@ -139,9 +142,9 @@ class Hermes:
         self._rate_limit = rate_limit
         self._secret_key = secret_key
         self._dev_mode = dev_mode
-        self._request_counts: Dict[str, int] = {}
+        self._request_counts: dict[str, int] = {}
 
-    def _validate_token(self, token: str) -> Tuple[str, TrustLevel]:
+    def _validate_token(self, token: str) -> tuple[str, TrustLevel]:
         """
         Validate token and return (user_id, TrustLevel).
 
@@ -161,10 +164,10 @@ class Hermes:
             return payload.get("sub", ""), trust_level
         except ValueError as jwt_exc:
             if "expired" in str(jwt_exc):
-                raise AuthenticationError(f"Token has expired (401)") from jwt_exc
+                raise AuthenticationError("Token has expired (401)") from jwt_exc
             # Other JWT parse errors — fall through to prefix fallback if dev_mode
             if not self._dev_mode:
-                raise AuthenticationError(f"Invalid JWT token (401)") from jwt_exc
+                raise AuthenticationError("Invalid JWT token (401)") from jwt_exc
 
         # ── 2. Legacy prefix fallback (dev mode only) ─────────────────
         for prefix, level in _TOKEN_TRUST_MAP.items():
@@ -172,7 +175,7 @@ class Hermes:
                 return "", level
         return "", TrustLevel.L1  # unknown prefix → default L1 in dev mode
 
-    def _resolve_data_class(self, context: Dict[str, Any]) -> DataClass:
+    def _resolve_data_class(self, context: dict[str, Any]) -> DataClass:
         raw: str = context.get("data_class", DataClass.PUBLIC.value)
         try:
             return DataClass(raw)
@@ -190,11 +193,11 @@ class Hermes:
 
     async def normalize(
         self,
-        token: Optional[str],
+        token: str | None,
         user_id: str,
         protocol: str,
         query: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> InternalRequest:
         """
         Normalize a raw external request into a canonical InternalRequest.
@@ -206,36 +209,54 @@ class Hermes:
             AuthenticationError: Token missing, expired, or invalid.
             RateLimitError: User exceeded the per-user request limit.
         """
-        ctx: Dict[str, Any] = context or {}
+        ctx: dict[str, Any] = context or {}
         now = datetime.now(timezone.utc)
 
         if not token:
-            await self._mnemosyne.append(AuditEvent(
-                event_type="auth",
-                event_data={"user_id": user_id, "result": "rejected", "reason": "missing_token"},
-                source_module="HERMES",
-                timestamp=now,
-            ))
+            await self._mnemosyne.append(
+                AuditEvent(
+                    event_type="auth",
+                    event_data={
+                        "user_id": user_id,
+                        "result": "rejected",
+                        "reason": "missing_token",
+                    },
+                    source_module="HERMES",
+                    timestamp=now,
+                )
+            )
             raise AuthenticationError(f"Missing authentication token for user {user_id!r} (401)")
 
         if len(token) < _MIN_TOKEN_LEN:
-            await self._mnemosyne.append(AuditEvent(
-                event_type="auth",
-                event_data={"user_id": user_id, "result": "rejected", "reason": "token_too_short"},
-                source_module="HERMES",
-                timestamp=now,
-            ))
+            await self._mnemosyne.append(
+                AuditEvent(
+                    event_type="auth",
+                    event_data={
+                        "user_id": user_id,
+                        "result": "rejected",
+                        "reason": "token_too_short",
+                    },
+                    source_module="HERMES",
+                    timestamp=now,
+                )
+            )
             raise AuthenticationError(f"Invalid authentication token for user {user_id!r} (401)")
 
         try:
             token_user_id, trust_level = self._validate_token(token)
         except AuthenticationError:
-            await self._mnemosyne.append(AuditEvent(
-                event_type="auth",
-                event_data={"user_id": user_id, "result": "rejected", "reason": "invalid_token"},
-                source_module="HERMES",
-                timestamp=now,
-            ))
+            await self._mnemosyne.append(
+                AuditEvent(
+                    event_type="auth",
+                    event_data={
+                        "user_id": user_id,
+                        "result": "rejected",
+                        "reason": "invalid_token",
+                    },
+                    source_module="HERMES",
+                    timestamp=now,
+                )
+            )
             raise
 
         resolved_user_id = token_user_id if token_user_id else user_id
@@ -254,23 +275,28 @@ class Hermes:
             authenticated=True,
         )
 
-        await self._mnemosyne.append(AuditEvent(
-            event_type="auth",
-            event_data={
-                "user_id": resolved_user_id,
-                "request_id": str(req.request_id),
-                "result": "accepted",
-                "trust_level": trust_level.name,
-                "data_class": data_class.value,
-                "protocol": protocol,
-                "auth_method": "jwt" if token_user_id else "prefix_legacy",
-            },
-            source_module="HERMES",
-            timestamp=now,
-        ))
+        await self._mnemosyne.append(
+            AuditEvent(
+                event_type="auth",
+                event_data={
+                    "user_id": resolved_user_id,
+                    "request_id": str(req.request_id),
+                    "result": "accepted",
+                    "trust_level": trust_level.name,
+                    "data_class": data_class.value,
+                    "protocol": protocol,
+                    "auth_method": "jwt" if token_user_id else "prefix_legacy",
+                },
+                source_module="HERMES",
+                timestamp=now,
+            )
+        )
 
         _logger.info(
             "HERMES accepted request %s (user=%s trust=%s data_class=%s)",
-            req.request_id, resolved_user_id, trust_level.name, data_class.value,
+            req.request_id,
+            resolved_user_id,
+            trust_level.name,
+            data_class.value,
         )
         return req

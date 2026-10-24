@@ -11,9 +11,9 @@ from __future__ import annotations
 import socket
 import struct
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
 BERLIN = ZoneInfo("Europe/Berlin")
@@ -24,9 +24,9 @@ _NTP_EPOCH_OFFSET = 2208988800  # 1900-01-01 → 1970-01-01
 @dataclass(frozen=True)
 class Timestamp:
     berlin: datetime
-    zone: str        # "MEZ" oder "MESZ"
-    method: str      # lesbare Methodik inkl. Quelle
-    verified: bool   # True nur bei erfolgreicher PTB-Abfrage
+    zone: str  # "MEZ" oder "MESZ"
+    method: str  # lesbare Methodik inkl. Quelle
+    verified: bool  # True nur bei erfolgreicher PTB-Abfrage
 
     def to_dict(self) -> dict:
         return {
@@ -56,7 +56,7 @@ def query_ntp(server: str, timeout: float = 1.5) -> float:
     return seconds - _NTP_EPOCH_OFFSET + fraction / 2**32
 
 
-def now(ntp: Optional[Callable[[str], float]] = None, use_network: bool = True) -> Timestamp:
+def now(ntp: Callable[[str], float] | None = None, use_network: bool = True) -> Timestamp:
     """Aktueller Zeitstempel Berlin mit gekennzeichneter Methodik."""
     if use_network:
         ask = ntp or query_ntp
@@ -69,13 +69,17 @@ def now(ntp: Optional[Callable[[str], float]] = None, use_network: bool = True) 
                 continue
             dt = datetime.fromtimestamp(unix, tz=timezone.utc).astimezone(BERLIN)
             return Timestamp(
-                dt, _zone_label(dt),
-                f"PTB-basiert ({server}, NTP; Abweichung Systemuhr {offset_ms:+.0f} ms)", True,
+                dt,
+                _zone_label(dt),
+                f"PTB-basiert ({server}, NTP; Abweichung Systemuhr {offset_ms:+.0f} ms)",
+                True,
             )
     dt = datetime.now(timezone.utc).astimezone(BERLIN)
     return Timestamp(
-        dt, _zone_label(dt),
-        "Fallback: Systemuhr (PTB-Zeitserver nicht erreichbar — nicht atomzeit-verifiziert)", False,
+        dt,
+        _zone_label(dt),
+        "Fallback: Systemuhr (PTB-Zeitserver nicht erreichbar — nicht atomzeit-verifiziert)",
+        False,
     )
 
 
@@ -83,18 +87,25 @@ def now(ntp: Optional[Callable[[str], float]] = None, use_network: bool = True) 
 _cache: dict = {}
 
 
-def now_cached(max_age_s: float = 600, ntp: Optional[Callable[[str], float]] = None) -> Timestamp:
+def now_cached(max_age_s: float = 600, ntp: Callable[[str], float] | None = None) -> Timestamp:
     """Wie :func:`now`, aber mit zwischengespeicherter PTB-Abweichung."""
     hit = _cache.get("ptb")
     if hit and time.monotonic() - hit["at"] < max_age_s:
         unix = time.time() + hit["offset"]
         dt = datetime.fromtimestamp(unix, tz=timezone.utc).astimezone(BERLIN)
         age = int((time.monotonic() - hit["at"]) // 60)
-        return Timestamp(dt, _zone_label(dt),
-                         f"PTB-basiert ({hit['server']}, NTP; synchronisiert vor {age} min)", True)
+        return Timestamp(
+            dt,
+            _zone_label(dt),
+            f"PTB-basiert ({hit['server']}, NTP; synchronisiert vor {age} min)",
+            True,
+        )
     stamp = now(ntp=ntp)
     if stamp.verified:
         server = stamp.method.split("(")[1].split(",")[0]
-        _cache["ptb"] = {"at": time.monotonic(), "offset": stamp.berlin.timestamp() - time.time(),
-                         "server": server}
+        _cache["ptb"] = {
+            "at": time.monotonic(),
+            "offset": stamp.berlin.timestamp() - time.time(),
+            "server": server,
+        }
     return stamp

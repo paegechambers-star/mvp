@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
@@ -19,7 +19,7 @@ from .timesource import BERLIN, now_cached
 router = APIRouter(prefix="/v1", tags=["Tagesplaner"])
 
 
-def _aware(value: Optional[datetime]) -> Optional[datetime]:
+def _aware(value: datetime | None) -> datetime | None:
     if value is None or value.tzinfo is not None:
         return value
     from zoneinfo import ZoneInfo
@@ -32,9 +32,9 @@ class TaskIn(BaseModel):
     duration_min: int = Field(default=30, ge=5, le=720)
     constraint: Constraint = Constraint.SOFT
     domain: str = Field(default="Allgemein", max_length=60)
-    fixed_start: Optional[datetime] = None
-    day: Optional[date] = None
-    due: Optional[date] = None
+    fixed_start: datetime | None = None
+    day: date | None = None
+    due: date | None = None
     priority: int = Field(default=2, ge=1, le=3)
     source: str = Field(default="Nutzereingabe", max_length=120)
     certainty: Certainty = Certainty.VERIFIED
@@ -43,17 +43,17 @@ class TaskIn(BaseModel):
 
 
 class TaskPatch(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=300)
-    duration_min: Optional[int] = Field(default=None, ge=5, le=720)
-    constraint: Optional[Constraint] = None
-    domain: Optional[str] = None
-    fixed_start: Optional[datetime] = None
-    day: Optional[date] = None
-    due: Optional[date] = None
-    priority: Optional[int] = Field(default=None, ge=1, le=3)
-    source: Optional[str] = None
-    certainty: Optional[Certainty] = None
-    done: Optional[bool] = None
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    duration_min: int | None = Field(default=None, ge=5, le=720)
+    constraint: Constraint | None = None
+    domain: str | None = None
+    fixed_start: datetime | None = None
+    day: date | None = None
+    due: date | None = None
+    priority: int | None = Field(default=None, ge=1, le=3)
+    source: str | None = None
+    certainty: Certainty | None = None
+    done: bool | None = None
 
     _tz = field_validator("fixed_start")(_aware)
 
@@ -67,20 +67,22 @@ def _get(session: Session, task_id: int) -> Task:
 
 @router.get("/tasks", summary="Aufgaben auflisten")
 def list_tasks(
-    day: Optional[date] = None, include_done: bool = False, session: Session = Depends(get_session)
-) -> List[Task]:
+    day: date | None = None, include_done: bool = False, session: Session = Depends(get_session)
+) -> list[Task]:
     q = select(Task)
     if day is not None:
         q = q.where(Task.day == day)
     if not include_done:
-        q = q.where(Task.done == False)  # noqa: E712 - SQL-Ausdruck
+        q = q.where(Task.done == False)
     return list(session.exec(q.order_by(Task.priority, Task.id)).all())
 
 
 @router.post("/tasks", status_code=status.HTTP_201_CREATED, summary="Aufgabe anlegen")
 def create_task(payload: TaskIn, session: Session = Depends(get_session)) -> Task:
     if payload.constraint == Constraint.HARD and payload.fixed_start is None:
-        raise HTTPException(status_code=422, detail="HARD-Aufgaben brauchen eine feste Uhrzeit (fixed_start)")
+        raise HTTPException(
+            status_code=422, detail="HARD-Aufgaben brauchen eine feste Uhrzeit (fixed_start)"
+        )
     task = Task(**payload.model_dump())
     if task.fixed_start is not None and task.day is None:
         task.day = task.fixed_start.astimezone(BERLIN).date()
@@ -101,7 +103,9 @@ def update_task(task_id: int, payload: TaskPatch, session: Session = Depends(get
     return task
 
 
-@router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Aufgabe löschen")
+@router.delete(
+    "/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Aufgabe löschen"
+)
 def delete_task(task_id: int, session: Session = Depends(get_session)) -> None:
     session.delete(_get(session, task_id))
     session.commit()
@@ -109,16 +113,17 @@ def delete_task(task_id: int, session: Session = Depends(get_session)) -> None:
 
 @router.get("/planner/day", summary="Tagesplan: Truth-Gate + 4D-Matrix")
 def day_plan(
-    day: Optional[date] = None,
+    day: date | None = None,
     start: str = "07:00",
     end: str = "22:00",
     session: Session = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     stamp = now_cached()
     target = day or stamp.berlin.date()
     try:
-        t_start = datetime.strptime(start, "%H:%M").time()
-        t_end = datetime.strptime(end, "%H:%M").time()
+        # nur Uhrzeit (HH:MM) — Zeitzone kommt aus dem Tag (Europe/Berlin)
+        t_start = datetime.strptime(start, "%H:%M").time()  # noqa: DTZ007
+        t_end = datetime.strptime(end, "%H:%M").time()  # noqa: DTZ007
     except ValueError:
         raise HTTPException(status_code=422, detail="start/end im Format HH:MM")
     if t_end <= t_start:
@@ -126,11 +131,17 @@ def day_plan(
     events = session.exec(select(Event)).all()
     today = stamp.berlin.date()
     tasks = [
-        t for t in session.exec(select(Task).where(Task.done == False)).all()  # noqa: E712
+        t
+        for t in session.exec(select(Task).where(Task.done == False)).all()
         if t.day == target or (t.day is None and target == today)
     ]
     plan = build_day_plan(
-        target, events, tasks, stamp, t_start, t_end,
+        target,
+        events,
+        tasks,
+        stamp,
+        t_start,
+        t_end,
         external={"Google Calendar": "nicht verbunden"},
     )
     return plan.to_dict()

@@ -25,7 +25,9 @@ def test_bad_genre_file_rejected(tmp_path):
     (tmp_path / "x.yaml").write_text(
         "id: x\nname: X\nfiction: true\naudience: a\ntarget_words: {min: 1, max: 2}\n"
         "chapters: {default: 1, words_min: 1, words_max: 2}\n"
-        "structure:\n  - {beat: a, share: 0.5, purpose: p}\n", encoding="utf-8")
+        "structure:\n  - {beat: a, share: 0.5, purpose: p}\n",
+        encoding="utf-8",
+    )
     assert list_genre_ids(tmp_path) == ["x"]
     with pytest.raises(GenreError, match="summieren"):
         load_genre("x", tmp_path)

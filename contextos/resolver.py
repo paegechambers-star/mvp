@@ -7,7 +7,7 @@ It also builds networkx citation graphs for visualisation and cycle detection.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import networkx as nx
 
@@ -27,8 +27,8 @@ class QueryResult:
 
     def __init__(
         self,
-        ssot: List[SSOTEntry],
-        work: List[WorkEntry],
+        ssot: list[SSOTEntry],
+        work: list[WorkEntry],
         query: str,
     ) -> None:
         self.ssot = ssot
@@ -55,10 +55,10 @@ class Resolver:
     # Basic lookups
     # ------------------------------------------------------------------
 
-    def get_ssot(self, nkid: str) -> Optional[SSOTEntry]:
+    def get_ssot(self, nkid: str) -> SSOTEntry | None:
         return self._register.get_ssot(nkid)
 
-    def get_work(self, mkid: str) -> Optional[WorkEntry]:
+    def get_work(self, mkid: str) -> WorkEntry | None:
         return self._register.get_work(mkid)
 
     # ------------------------------------------------------------------
@@ -68,9 +68,9 @@ class Resolver:
     def query(
         self,
         *,
-        cluster: Optional[Cluster] = None,
-        truth_gate: Optional[TruthGate] = None,
-        kind: Optional[str] = None,          # "NK" or "MK"
+        cluster: Cluster | None = None,
+        truth_gate: TruthGate | None = None,
+        kind: str | None = None,  # "NK" or "MK"
         active_only: bool = True,
     ) -> QueryResult:
         """
@@ -85,13 +85,12 @@ class Resolver:
         Returns:
             :class:`QueryResult` with matching entries.
         """
-        ssot_results: List[SSOTEntry] = []
-        work_results: List[WorkEntry] = []
+        ssot_results: list[SSOTEntry] = []
+        work_results: list[WorkEntry] = []
 
         if kind in (None, "NK"):
             entries = (
-                self._register.ssot_by_cluster(cluster)
-                if cluster else self._register.all_ssot()
+                self._register.ssot_by_cluster(cluster) if cluster else self._register.all_ssot()
             )
             for e in entries:
                 if active_only and e.superseded_by:
@@ -118,10 +117,11 @@ class Resolver:
             desc_parts.append(f"kind={kind}")
         return QueryResult(ssot_results, work_results, query=" ".join(desc_parts) or "*")
 
-    def find_unverified(self) -> List[SSOTEntry]:
+    def find_unverified(self) -> list[SSOTEntry]:
         """Return all active SSOT entries with TruthGate.UNVERIFIED."""
         return [
-            e for e in self._register.all_ssot()
+            e
+            for e in self._register.all_ssot()
             if e.truth_gate == TruthGate.UNVERIFIED and not e.superseded_by
         ]
 
@@ -168,27 +168,29 @@ class Resolver:
 
         return G
 
-    def citation_cycles(self, include_work: bool = False) -> List[List[str]]:
+    def citation_cycles(self, include_work: bool = False) -> list[list[str]]:
         """Return all citation cycles found in the graph (should be empty in healthy state)."""
         G = self.build_citation_graph(include_work=include_work)
         return list(nx.simple_cycles(G))
 
-    def validate_citations(self) -> List[Dict[str, Any]]:
+    def validate_citations(self) -> list[dict[str, Any]]:
         """
         Check the No-Citation = No-Assertion invariant across all SSOT entries.
 
         Returns a list of violation dicts (empty list = all good).
         """
-        violations: List[Dict[str, Any]] = []
+        violations: list[dict[str, Any]] = []
         for entry in self._register.all_ssot():
             if (
                 entry.truth_gate in _TRUTH_GATES_REQUIRING_CITATION
                 and not entry.citations
                 and not entry.superseded_by
             ):
-                violations.append({
-                    "nkid": entry.nkid,
-                    "truth_gate": entry.truth_gate.value,
-                    "issue": "No citations for non-empty assertion",
-                })
+                violations.append(
+                    {
+                        "nkid": entry.nkid,
+                        "truth_gate": entry.truth_gate.value,
+                        "issue": "No citations for non-empty assertion",
+                    }
+                )
         return violations

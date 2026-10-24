@@ -12,7 +12,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 _GENESIS = "0" * 64
 
@@ -24,19 +24,19 @@ def _sha(text: str) -> str:
 class AuditLog:
     """Tamper-evident JSONL-Log. ``path=None`` → nur im Speicher."""
 
-    def __init__(self, path: Optional[Path] = None) -> None:
+    def __init__(self, path: Path | None = None) -> None:
         self._path = path
-        self._entries: list[Dict[str, Any]] = []
+        self._entries: list[dict[str, Any]] = []
         if path is not None and path.exists():
             for line in path.read_text(encoding="utf-8").splitlines():
                 if line.strip():
                     self._entries.append(json.loads(line))
 
     @property
-    def entries(self) -> list[Dict[str, Any]]:
+    def entries(self) -> list[dict[str, Any]]:
         return list(self._entries)
 
-    def append(self, event: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def append(self, event: str, data: dict[str, Any]) -> dict[str, Any]:
         prev = self._entries[-1]["hash"] if self._entries else _GENESIS
         entry = {
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -52,10 +52,8 @@ class AuditLog:
                 fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         return entry
 
-    def llm_call(
-        self, role: str, model: str, prompt: str, stop_reason: str, usage: Any
-    ) -> None:
-        data: Dict[str, Any] = {
+    def llm_call(self, role: str, model: str, prompt: str, stop_reason: str, usage: Any) -> None:
+        data: dict[str, Any] = {
             "role": role,
             "model": model,
             "prompt_sha256": _sha(prompt),

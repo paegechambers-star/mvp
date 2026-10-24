@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
 
 class Constraint(str, Enum):
-    HARD = "HARD"    # fester Zeitpunkt, nicht verschiebbar
-    SOFT = "SOFT"    # soll heute erledigt werden, Zeit flexibel
+    HARD = "HARD"  # fester Zeitpunkt, nicht verschiebbar
+    SOFT = "SOFT"  # soll heute erledigt werden, Zeit flexibel
     FLOAT = "FLOAT"  # kann, wenn Zeit bleibt
 
 
@@ -22,16 +21,16 @@ class Certainty(str, Enum):
 
 
 class Task(SQLModel, table=True):  # type: ignore[call-arg]
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str
     duration_min: int = 30
     constraint: Constraint = Constraint.SOFT
     domain: str = "Allgemein"
     # Feste Uhrzeit (nur sinnvoll bei HARD); zeitzonenbewusst
-    fixed_start: Optional[datetime] = None
+    fixed_start: datetime | None = None
     # Tag, für den die Aufgabe geplant ist (None = ab heute offen)
-    day: Optional[date] = Field(default=None, index=True)
-    due: Optional[date] = None
+    day: date | None = Field(default=None, index=True)
+    due: date | None = None
     priority: int = 2  # 1 = hoch, 3 = niedrig
     source: str = "Nutzereingabe"
     certainty: Certainty = Certainty.VERIFIED

@@ -55,8 +55,10 @@ def test_parallel_threads_share_one_chain(project):
 
     gov = GodaiGovernance()
     llm = GovernedLLM(make_llm(), gov)
-    threads = [threading.Thread(target=lambda: [llm.complete("x", "s", "p") for _ in range(10)])
-               for _ in range(4)]
+    threads = [
+        threading.Thread(target=lambda: [llm.complete("x", "s", "p") for _ in range(10)])
+        for _ in range(4)
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -71,7 +73,10 @@ def test_hermes_runs_in_strict_jwt_mode():
 
     gov = GodaiGovernance()
     with pytest.raises(AuthenticationError):
-        gov._run(gov.hermes.normalize(token="internal-fake", user_id="x", protocol="http",
-                                      query="q", context={}))
+        gov._run(
+            gov.hermes.normalize(
+                token="internal-fake", user_id="x", protocol="http", query="q", context={}
+            )
+        )
     gov.check("draft", "p", "INTERNAL")  # eigener JWT wird akzeptiert
     assert gov.status()["decisions"]["allowed"] == 1

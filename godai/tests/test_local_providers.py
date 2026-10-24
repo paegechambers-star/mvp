@@ -10,11 +10,12 @@ Run with Ollama active:
     ollama serve &
     pytest godai/tests/test_local_providers.py -v
 """
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -31,6 +32,7 @@ _OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", OllamaProvider.DEFAULT_MODEL)
 def _ollama_available() -> bool:
     try:
         import httpx
+
         with httpx.Client(timeout=3.0) as c:
             r = c.get(f"{_OLLAMA_URL}/api/version")
             return r.status_code == 200
@@ -43,6 +45,7 @@ def _ollama_model_available() -> bool:
         return False
     try:
         import httpx
+
         with httpx.Client(timeout=5.0) as c:
             r = c.get(f"{_OLLAMA_URL}/api/tags")
             data = r.json()
@@ -55,7 +58,7 @@ def _ollama_model_available() -> bool:
 ollama_required = pytest.mark.skipif(
     not _ollama_model_available(),
     reason=f"Ollama not running or model '{_OLLAMA_MODEL}' not pulled. "
-           f"Run: bash scripts/install_local_llm.sh",
+    f"Run: bash scripts/install_local_llm.sh",
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -83,6 +86,7 @@ def _find_gguf() -> str | None:
 def _llamacpp_available() -> bool:
     try:
         import llama_cpp  # type: ignore[import]  # noqa: F401
+
         return _find_gguf() is not None
     except ImportError:
         return False
@@ -91,7 +95,7 @@ def _llamacpp_available() -> bool:
 llamacpp_required = pytest.mark.skipif(
     not _llamacpp_available(),
     reason="llama-cpp-python not installed or no .gguf model found. "
-           "Run: bash scripts/install_local_llm.sh --llamacpp",
+    "Run: bash scripts/install_local_llm.sh --llamacpp",
 )
 
 
@@ -99,8 +103,9 @@ llamacpp_required = pytest.mark.skipif(
 # Shared context fixture
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture()
-def ctx() -> Dict[str, Any]:
+def ctx() -> dict[str, Any]:
     return {"data_class": "PUBLIC"}
 
 
@@ -118,7 +123,7 @@ async def test_ollama_health_check() -> None:
 
 @ollama_required
 @pytest.mark.asyncio
-async def test_ollama_generate_returns_non_empty(ctx: Dict[str, Any]) -> None:
+async def test_ollama_generate_returns_non_empty(ctx: dict[str, Any]) -> None:
     provider = OllamaProvider(model=_OLLAMA_MODEL, base_url=_OLLAMA_URL, max_tokens=64)
     result = await provider.generate(
         model_id="claude-haiku-4-5-20251001",
@@ -131,7 +136,7 @@ async def test_ollama_generate_returns_non_empty(ctx: Dict[str, Any]) -> None:
 
 @ollama_required
 @pytest.mark.asyncio
-async def test_ollama_validation_call_returns_json(ctx: Dict[str, Any]) -> None:
+async def test_ollama_validation_call_returns_json(ctx: dict[str, Any]) -> None:
     provider = OllamaProvider(model=_OLLAMA_MODEL, base_url=_OLLAMA_URL, max_tokens=128)
     result = await provider.generate(
         model_id="claude-sonnet-4-6",
@@ -139,6 +144,7 @@ async def test_ollama_validation_call_returns_json(ctx: Dict[str, Any]) -> None:
         context=ctx,
     )
     import json
+
     data = json.loads(result)
     assert "verdict" in data
     assert data["verdict"] in ("pass", "fail")
@@ -147,7 +153,7 @@ async def test_ollama_validation_call_returns_json(ctx: Dict[str, Any]) -> None:
 
 @ollama_required
 @pytest.mark.asyncio
-async def test_ollama_pipeline_integration(ctx: Dict[str, Any]) -> None:
+async def test_ollama_pipeline_integration(ctx: dict[str, Any]) -> None:
     """OllamaProvider works as a drop-in replacement in the full pipeline."""
     from godai.pipeline import GodaiPipeline
 
@@ -172,7 +178,7 @@ async def test_ollama_pipeline_integration(ctx: Dict[str, Any]) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ollama_connection_refused_raises_runtime_error(ctx: Dict[str, Any]) -> None:
+async def test_ollama_connection_refused_raises_runtime_error(ctx: dict[str, Any]) -> None:
     """OllamaProvider raises RuntimeError (not hangs) when server is down."""
     provider = OllamaProvider(
         model="tinyllama",
@@ -190,7 +196,7 @@ async def test_ollama_connection_refused_raises_runtime_error(ctx: Dict[str, Any
 
 @llamacpp_required
 @pytest.mark.asyncio
-async def test_llamacpp_generate_returns_non_empty(ctx: Dict[str, Any]) -> None:
+async def test_llamacpp_generate_returns_non_empty(ctx: dict[str, Any]) -> None:
     model_path = _find_gguf()
     assert model_path is not None
     provider = LlamaCppProvider(model_path=model_path, max_tokens=64, verbose=False)
@@ -205,7 +211,7 @@ async def test_llamacpp_generate_returns_non_empty(ctx: Dict[str, Any]) -> None:
 
 @llamacpp_required
 @pytest.mark.asyncio
-async def test_llamacpp_pipeline_integration(ctx: Dict[str, Any]) -> None:
+async def test_llamacpp_pipeline_integration(ctx: dict[str, Any]) -> None:
     """LlamaCppProvider works as a drop-in in the full pipeline."""
     from godai.pipeline import GodaiPipeline
 
@@ -227,7 +233,7 @@ async def test_llamacpp_pipeline_integration(ctx: Dict[str, Any]) -> None:
 
 
 @pytest.mark.asyncio
-async def test_llamacpp_missing_file_raises_runtime_error(ctx: Dict[str, Any]) -> None:
+async def test_llamacpp_missing_file_raises_runtime_error(ctx: dict[str, Any]) -> None:
     """LlamaCppProvider raises RuntimeError when model file is missing."""
     provider = LlamaCppProvider(model_path="/nonexistent/path/model.gguf")
     with pytest.raises(RuntimeError, match="LlamaCppProvider"):

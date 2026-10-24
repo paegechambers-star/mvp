@@ -1,9 +1,9 @@
 """FraPP FastAPI application — SaaS-ready: auth, CORS, CRUD, G.O.D.A.I., metrics, metering."""
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Security, status
 from fastapi.exceptions import RequestValidationError
@@ -13,19 +13,20 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, func, select
 
-from .db import get_session, init_db
-from .logging_config import configure_logging
-from .metrics import setup_metrics
-from .models import Event, UsageRecord
-from .rate_limiter import limiter, rate_limit_exceeded_handler  # noqa: F401
-from .settings import settings
-from .docks import load_docks
-from godai.modules.mnemosyne import Mnemosyne
-from godai.modules.hermes import Hermes
 from godai.modules.dispatch_bridge import DispatchBridge
-from .mobile_dispatch import build_router
-from .mcp_dispatch import build_mcp_router
+from godai.modules.hermes import Hermes
+from godai.modules.mnemosyne import Mnemosyne
+
 from .chat import router as chat_router
+from .db import get_session, init_db
+from .docks import load_docks
+from .logging_config import configure_logging
+from .mcp_dispatch import build_mcp_router
+from .metrics import setup_metrics
+from .mobile_dispatch import build_router
+from .models import Event, UsageRecord
+from .rate_limiter import limiter, rate_limit_exceeded_handler
+from .settings import settings
 
 
 @asynccontextmanager
@@ -52,6 +53,7 @@ setup_metrics(app)
 if limiter is not None:
     try:
         from slowapi.errors import RateLimitExceeded  # type: ignore[import]
+
         app.state.limiter = limiter
         app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
     except ImportError:
@@ -106,12 +108,12 @@ async def _validation_exc(request, exc: RequestValidationError):
 
 
 # ── Header helpers ────────────────────────────────────────────────────────────
-def get_caller_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[str]:
+def get_caller_id(x_user_id: str | None = Header(default=None)) -> str | None:
     """Extract caller identity from X-User-ID header (used for GDPR scoping)."""
     return x_user_id
 
 
-def get_tenant_id(x_tenant_id: Optional[str] = Header(default=None)) -> Optional[str]:
+def get_tenant_id(x_tenant_id: str | None = Header(default=None)) -> str | None:
     """Extract tenant from X-Tenant-ID header for row-level data isolation (BR1)."""
     return x_tenant_id
 
@@ -124,21 +126,24 @@ async def _meter_requests(request: Request, call_next):
     if tenant_id and request.url.path.startswith("/v1/"):
         try:
             from .db import engine as _engine
+
             with Session(_engine) as _s:
-                _s.add(UsageRecord(
-                    tenant_id=tenant_id,
-                    endpoint=request.url.path,
-                    method=request.method,
-                    status_code=response.status_code,
-                ))
+                _s.add(
+                    UsageRecord(
+                        tenant_id=tenant_id,
+                        endpoint=request.url.path,
+                        method=request.method,
+                        status_code=response.status_code,
+                    )
+                )
                 _s.commit()
-        except Exception:
-            pass  # never crash the request pipeline on metering failure
+        except Exception:  # noqa: S110 - never crash the request pipeline on metering failure
+            pass
     return response
 
 
 # ── Pydantic schemas (Q7) ─────────────────────────────────────────────────────
-def _aware(value: Optional[datetime]) -> Optional[datetime]:
+def _aware(value: datetime | None) -> datetime | None:
     """Termine ohne Zeitzone als Ortszeit (settings.timezone) lesen.
 
     SQLModel >= 0.0.48 speichert nur zeitzonenbewusste Zeitpunkte (UTC).
@@ -154,19 +159,19 @@ class EventCreate(BaseModel):
     title: str
     starts_at: datetime
     ends_at: datetime
-    location: Optional[str] = None
+    location: str | None = None
     all_day: bool = False
-    owner: Optional[str] = None
+    owner: str | None = None
 
     _tz = field_validator("starts_at", "ends_at")(_aware)
 
 
 class EventUpdate(BaseModel):
-    title: Optional[str] = None
-    starts_at: Optional[datetime] = None
-    ends_at: Optional[datetime] = None
-    location: Optional[str] = None
-    all_day: Optional[bool] = None
+    title: str | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    location: str | None = None
+    all_day: bool | None = None
 
     _tz = field_validator("starts_at", "ends_at")(_aware)
 
@@ -176,16 +181,16 @@ class EventResponse(BaseModel):
     title: str
     starts_at: datetime
     ends_at: datetime
-    location: Optional[str]
+    location: str | None
     all_day: bool
-    owner: Optional[str] = None
-    tenant_id: Optional[str] = None
+    owner: str | None = None
+    tenant_id: str | None = None
 
     model_config = {"from_attributes": True}
 
 
 class PaginatedEvents(BaseModel):
-    data: List[EventResponse]
+    data: list[EventResponse]
     total: int
     limit: int
     offset: int
@@ -196,7 +201,9 @@ class LivenessResponse(BaseModel):
     status: str
 
 
-@app.get("/healthz/live", response_model=LivenessResponse, tags=["Health"], summary="Liveness probe")
+@app.get(
+    "/healthz/live", response_model=LivenessResponse, tags=["Health"], summary="Liveness probe"
+)
 def liveness():
     return {"status": "alive"}
 
@@ -232,7 +239,7 @@ def list_events(
     limit: int = 50,
     offset: int = 0,
     session: Session = Depends(get_session),
-    tenant_id: Optional[str] = Depends(get_tenant_id),
+    tenant_id: str | None = Depends(get_tenant_id),
 ):
     q = select(Event)
     cq = select(func.count()).select_from(Event)
@@ -260,8 +267,8 @@ def list_events(
 def create_event(
     payload: EventCreate,
     session: Session = Depends(get_session),
-    caller_id: Optional[str] = Depends(get_caller_id),
-    tenant_id: Optional[str] = Depends(get_tenant_id),
+    caller_id: str | None = Depends(get_caller_id),
+    tenant_id: str | None = Depends(get_tenant_id),
 ):
     data = payload.model_dump()
     if data.get("owner") is None and caller_id:
@@ -330,7 +337,7 @@ def delete_event(event_id: int, session: Session = Depends(get_session)):
 # ── GDPR endpoints (Art. 15 / 17 / 20) ───────────────────────────────────────
 class UserDataResponse(BaseModel):
     user_id: str
-    events: List[EventResponse]
+    events: list[EventResponse]
     event_count: int
     message: str = "Your data retrieved under GDPR Art. 15"
 
@@ -343,11 +350,13 @@ class UserDataResponse(BaseModel):
     dependencies=[Depends(require_api_key)],
 )
 def gdpr_get_data(
-    caller_id: Optional[str] = Depends(get_caller_id),
+    caller_id: str | None = Depends(get_caller_id),
     session: Session = Depends(get_session),
 ):
     if not caller_id:
-        raise HTTPException(status_code=400, detail="X-User-ID header required for GDPR data access")
+        raise HTTPException(
+            status_code=400, detail="X-User-ID header required for GDPR data access"
+        )
     events = session.exec(select(Event).where(Event.owner == caller_id)).all()
     return UserDataResponse(
         user_id=caller_id,
@@ -364,7 +373,7 @@ def gdpr_get_data(
     dependencies=[Depends(require_api_key)],
 )
 def gdpr_delete_data(
-    caller_id: Optional[str] = Depends(get_caller_id),
+    caller_id: str | None = Depends(get_caller_id),
     session: Session = Depends(get_session),
 ):
     if not caller_id:
@@ -388,7 +397,7 @@ def gdpr_delete_data(
     dependencies=[Depends(require_api_key)],
 )
 def gdpr_export_data(
-    caller_id: Optional[str] = Depends(get_caller_id),
+    caller_id: str | None = Depends(get_caller_id),
     session: Session = Depends(get_session),
 ):
     if not caller_id:
@@ -410,7 +419,7 @@ def gdpr_export_data(
     dependencies=[Depends(require_api_key)],
 )
 def admin_usage(
-    tenant_id: Optional[str] = None,
+    tenant_id: str | None = None,
     session: Session = Depends(get_session),
 ):
     q = select(UsageRecord)
@@ -424,9 +433,7 @@ def admin_usage(
             by_tenant[r.tenant_id] = {"total_requests": 0, "endpoints": {}}
         by_tenant[r.tenant_id]["total_requests"] += 1
         ep = r.endpoint
-        by_tenant[r.tenant_id]["endpoints"][ep] = (
-            by_tenant[r.tenant_id]["endpoints"].get(ep, 0) + 1
-        )
+        by_tenant[r.tenant_id]["endpoints"][ep] = by_tenant[r.tenant_id]["endpoints"].get(ep, 0) + 1
 
     return {
         "tenants": by_tenant,
@@ -436,20 +443,20 @@ def admin_usage(
 
 
 # ── Include G.O.D.A.I. router (B4) ───────────────────────────────────────────
-from .godai_router import router as godai_router  # noqa: E402
+from .godai_router import router as godai_router
 
 app.include_router(godai_router, dependencies=[Depends(require_api_key)])
 
 
 # ── Tagesplaner: Aufgaben + Tagesplan (Truth-Gate, 4D-Matrix, PTB-Zeit) ───────
-from .planner import models as _planner_models  # noqa: E402,F401 - Tabelle registrieren
-from .planner.api import router as planner_router  # noqa: E402
+from .planner import models as _planner_models  # noqa: F401 - Tabelle registrieren
+from .planner.api import router as planner_router
 
 app.include_router(planner_router, dependencies=[Depends(require_api_key)])
 
 
 # ── ContextOS (Register lesen, Kette prüfen, IDs validieren) ──────────────────
-from .contextos_view import router as contextos_router  # noqa: E402
+from .contextos_view import router as contextos_router
 
 app.include_router(contextos_router, dependencies=[Depends(require_api_key)])
 
@@ -465,9 +472,9 @@ app.include_router(chat_router)
 
 
 # ── Desktop-Oberfläche (Tabs: Tagesplan, Kalender, SCRIPTOR, G.O.D.A.I., ContextOS) ─
-from pathlib import Path as _Path  # noqa: E402
+from pathlib import Path as _Path
 
-from fastapi.responses import HTMLResponse, RedirectResponse  # noqa: E402
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 _SHELL = _Path(__file__).parent / "static" / "shell.html"
 

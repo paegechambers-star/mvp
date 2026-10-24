@@ -3,6 +3,7 @@ import secrets
 
 import typer
 import uvicorn
+
 from .settings import settings
 
 app = typer.Typer(add_completion=False)
@@ -52,21 +53,31 @@ def prepare_desktop() -> str:
 @app.command("app")
 def desktop(
     port: int = typer.Option(0, help="Port (0 = frei wählen)"),
-    browser: bool = typer.Option(False, "--browser", help="Im Browser statt eigenem Fenster öffnen"),
+    browser: bool = typer.Option(
+        False, "--browser", help="Im Browser statt eigenem Fenster öffnen"
+    ),
 ):
     """Desktop-App: Tagesplan, Kalender, SCRIPTOR, G.O.D.A.I., ContextOS in einem Fenster."""
     from scriptor.app.launcher import ensure_streams, launch
 
     ensure_streams()
     token = prepare_desktop()
-    from .api import DOCKS, app as api_app
+    from .api import DOCKS
+    from .api import app as api_app
 
     scriptor = next((d for d in DOCKS if d.name == "scriptor"), None)
     if scriptor is None:
         typer.secho("SCRIPTOR-Dock nicht geladen (FRAPP_DISABLED_DOCKS?).", fg="red", err=True)
         raise typer.Exit(1)
-    launch(scriptor.runtime, port=port, prefer_window=not browser,
-           asgi=api_app, token=token, path="/app/", title="FraPP")
+    launch(
+        scriptor.runtime,
+        port=port,
+        prefer_window=not browser,
+        asgi=api_app,
+        token=token,
+        path="/app/",
+        title="FraPP",
+    )
 
 
 def _mount_dock_cli() -> None:

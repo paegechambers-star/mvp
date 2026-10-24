@@ -24,13 +24,11 @@ die App nicht lahm.
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
-
-if TYPE_CHECKING:
-    from scriptor.agent import Agent
+from typing import Any
 
 ENTRY_POINT_GROUP = "scriptor.docks"
 
@@ -44,14 +42,14 @@ class Dock:
     version: str = "0.0.0"
     description: str = ""
 
-    def load(self, registry: "DockRegistry") -> bool:
+    def load(self, registry: DockRegistry) -> bool:
         """Registriert die Beiträge des Docks. False = Dock deaktiviert sich selbst."""
         return True
 
 
 @dataclass
 class DockTool:
-    schema: Dict[str, Any]
+    schema: dict[str, Any]
     handler: ToolHandler
     confirm: bool
     dock: str
@@ -65,20 +63,20 @@ class DockInfo:
     source: str  # builtin | entrypoint | folder
     loaded: bool
     error: str = ""
-    contributes: List[str] = field(default_factory=list)
+    contributes: list[str] = field(default_factory=list)
 
 
 class DockRegistry:
     """Sammelt alle Beiträge der geladenen Docks."""
 
     def __init__(self) -> None:
-        self.tools: Dict[str, DockTool] = {}
-        self.genre_dirs: List[Path] = []
-        self.materials: Dict[str, str] = {}
-        self.routers: List[Any] = []
-        self.cli: Dict[str, Any] = {}
-        self.infos: List[DockInfo] = []
-        self._current: Optional[DockInfo] = None
+        self.tools: dict[str, DockTool] = {}
+        self.genre_dirs: list[Path] = []
+        self.materials: dict[str, str] = {}
+        self.routers: list[Any] = []
+        self.cli: dict[str, Any] = {}
+        self.infos: list[DockInfo] = []
+        self._current: DockInfo | None = None
 
     # -- API für Docks -------------------------------------------------
 
@@ -90,7 +88,7 @@ class DockRegistry:
         self,
         name: str,
         description: str,
-        input_schema: Dict[str, Any],
+        input_schema: dict[str, Any],
         handler: ToolHandler,
         confirm: bool = False,
     ) -> None:
@@ -128,11 +126,16 @@ class DockRegistry:
     def load_dock(self, dock: Dock, source: str) -> DockInfo:
         info = DockInfo(dock.name, dock.version, dock.description, source, loaded=False)
         self._current = info
-        snapshot = (dict(self.tools), list(self.genre_dirs), dict(self.materials),
-                    list(self.routers), dict(self.cli))
+        snapshot = (
+            dict(self.tools),
+            list(self.genre_dirs),
+            dict(self.materials),
+            list(self.routers),
+            dict(self.cli),
+        )
         try:
             info.loaded = bool(dock.load(self))
-        except Exception as exc:  # noqa: BLE001 - Plugin-Isolation
+        except Exception as exc:
             info.error = f"{type(exc).__name__}: {exc}"
         if not info.loaded:
             # Teilregistrierungen eines fehlgeschlagenen Docks zurückrollen
@@ -160,8 +163,8 @@ def _instantiate(obj: Any) -> Dock:
     return dock  # type: ignore[no-any-return]
 
 
-def _folder_docks(plugin_dir: Path, enabled: List[str]) -> List[tuple[str, Any, str]]:
-    found: List[tuple[str, Any, str]] = []
+def _folder_docks(plugin_dir: Path, enabled: list[str]) -> list[tuple[str, Any, str]]:
+    found: list[tuple[str, Any, str]] = []
     if not plugin_dir.exists():
         return found
     for path in sorted(plugin_dir.glob("*.py")):
@@ -174,16 +177,16 @@ def _folder_docks(plugin_dir: Path, enabled: List[str]) -> List[tuple[str, Any, 
                 raise ImportError("kein Modul")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            found.append((path.stem, getattr(module, "DOCK"), ""))
-        except Exception as exc:  # noqa: BLE001
+            found.append((path.stem, module.DOCK, ""))
+        except Exception as exc:
             found.append((path.stem, None, f"{type(exc).__name__}: {exc}"))
     return found
 
 
 def discover(
-    plugin_dir: Optional[Path] = None,
-    enabled_plugins: Optional[List[str]] = None,
-    disabled: Optional[List[str]] = None,
+    plugin_dir: Path | None = None,
+    enabled_plugins: list[str] | None = None,
+    disabled: list[str] | None = None,
     include_entry_points: bool = True,
 ) -> DockRegistry:
     """Lädt alle Docks und gibt die befüllte Registry zurück."""
@@ -195,12 +198,13 @@ def discover(
     def _load(obj: Any, source: str, fallback_name: str) -> None:
         try:
             dock = _instantiate(obj)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             registry.infos.append(DockInfo(fallback_name, "?", "", source, False, str(exc)))
             return
         if dock.name in disabled:
-            registry.infos.append(DockInfo(dock.name, dock.version, dock.description, source,
-                                           False, "deaktiviert"))
+            registry.infos.append(
+                DockInfo(dock.name, dock.version, dock.description, source, False, "deaktiviert")
+            )
             return
         registry.load_dock(dock, source)
 
@@ -211,7 +215,7 @@ def discover(
         for ep in metadata.entry_points(group=ENTRY_POINT_GROUP):
             try:
                 obj = ep.load()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 registry.infos.append(DockInfo(ep.name, "?", "", "entrypoint", False, str(exc)))
                 continue
             _load(obj, "entrypoint", ep.name)

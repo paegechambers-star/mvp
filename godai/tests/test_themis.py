@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import textwrap
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime, timezone
 
 import pytest
 
 from godai.models.request import DataClass, InternalRequest, TrustLevel
 from godai.modules.mnemosyne import Mnemosyne
 from godai.modules.themis import PolicyLoadError, Themis
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -73,10 +72,13 @@ def test_load_invalid_yaml_raises(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
 
 
 def test_policy_version_is_tracked(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
-    p = _write_policy(tmp_path, """
+    p = _write_policy(
+        tmp_path,
+        """
         version: "2.5"
         rules: []
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     assert t.policy_version == "2.5"
 
@@ -87,10 +89,10 @@ def test_policy_version_is_tracked(tmp_path: Path, mnemosyne: Mnemosyne) -> None
 
 
 @pytest.mark.asyncio
-async def test_public_request_l1_passes(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
-    p = _write_policy(tmp_path, """
+async def test_public_request_l1_passes(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
+    p = _write_policy(
+        tmp_path,
+        """
         version: "1.0"
         rules:
           - id: "PII_REQUIRES_L2"
@@ -98,7 +100,8 @@ async def test_public_request_l1_passes(
             requirement: "trust_level >= L2"
             action: "deny"
             message: "Need L2"
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L1, dc=DataClass.PUBLIC)
     decision = await t.evaluate(req)
@@ -109,10 +112,10 @@ async def test_public_request_l1_passes(
 
 
 @pytest.mark.asyncio
-async def test_sensitive_request_l2_passes(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
-    p = _write_policy(tmp_path, """
+async def test_sensitive_request_l2_passes(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
+    p = _write_policy(
+        tmp_path,
+        """
         version: "1.0"
         rules:
           - id: "PII_REQUIRES_L2"
@@ -120,7 +123,8 @@ async def test_sensitive_request_l2_passes(
             requirement: "trust_level >= L2"
             action: "deny"
             message: "Need L2"
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L2, dc=DataClass.SENSITIVE)
     decision = await t.evaluate(req)
@@ -129,9 +133,7 @@ async def test_sensitive_request_l2_passes(
 
 
 @pytest.mark.asyncio
-async def test_no_rules_always_allows(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
+async def test_no_rules_always_allows(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
     p = _write_policy(tmp_path, "version: '1.0'\nrules: []\n")
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L0, dc=DataClass.RESTRICTED)
@@ -145,10 +147,10 @@ async def test_no_rules_always_allows(
 
 
 @pytest.mark.asyncio
-async def test_sensitive_request_l1_denied(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
-    p = _write_policy(tmp_path, """
+async def test_sensitive_request_l1_denied(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
+    p = _write_policy(
+        tmp_path,
+        """
         version: "1.0"
         rules:
           - id: "PII_REQUIRES_L2"
@@ -156,7 +158,8 @@ async def test_sensitive_request_l1_denied(
             requirement: "trust_level >= L2"
             action: "deny"
             message: "Sensitive data requires L2+"
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L1, dc=DataClass.SENSITIVE)
     decision = await t.evaluate(req)
@@ -169,10 +172,10 @@ async def test_sensitive_request_l1_denied(
 
 
 @pytest.mark.asyncio
-async def test_email_action_without_consent_denied(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
-    p = _write_policy(tmp_path, """
+async def test_email_action_without_consent_denied(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
+    p = _write_policy(
+        tmp_path,
+        """
         version: "1.0"
         rules:
           - id: "EMAIL_REQUIRES_CONSENT"
@@ -180,7 +183,8 @@ async def test_email_action_without_consent_denied(
             requirement: "explicit_consent == true"
             action: "deny"
             message: "Email requires consent"
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L2, action="send_email", consent=False)
     decision = await t.evaluate(req)
@@ -189,10 +193,10 @@ async def test_email_action_without_consent_denied(
 
 
 @pytest.mark.asyncio
-async def test_email_action_with_consent_allowed(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
-    p = _write_policy(tmp_path, """
+async def test_email_action_with_consent_allowed(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
+    p = _write_policy(
+        tmp_path,
+        """
         version: "1.0"
         rules:
           - id: "EMAIL_REQUIRES_CONSENT"
@@ -200,7 +204,8 @@ async def test_email_action_with_consent_allowed(
             requirement: "explicit_consent == true"
             action: "deny"
             message: "Email requires consent"
-    """)
+    """,
+    )
     t = Themis(mnemosyne, p)
     req = _make_request(trust=TrustLevel.L2, action="send_email", consent=True)
     decision = await t.evaluate(req)
@@ -241,9 +246,7 @@ async def test_default_policy_restricted_l3_allowed(
 
 
 @pytest.mark.asyncio
-async def test_policy_version_in_allowed_decision(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
+async def test_policy_version_in_allowed_decision(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
     p = _write_policy(tmp_path, "version: '9.9'\nrules: []\n")
     t = Themis(mnemosyne, p)
     req = _make_request()
@@ -257,9 +260,7 @@ async def test_policy_version_in_allowed_decision(
 
 
 @pytest.mark.asyncio
-async def test_reload_policy_picks_up_changes(
-    tmp_path: Path, mnemosyne: Mnemosyne
-) -> None:
+async def test_reload_policy_picks_up_changes(tmp_path: Path, mnemosyne: Mnemosyne) -> None:
     policy_file = _write_policy(tmp_path, "version: '1.0'\nrules: []\n")
     t = Themis(mnemosyne, policy_file)
     assert t.policy_version == "1.0"

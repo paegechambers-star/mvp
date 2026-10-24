@@ -21,13 +21,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from godai.modules.dispatch_bridge import CommandExpiredError, DispatchBridge
-from godai.modules.hermes import AuthenticationError, Hermes, RateLimitError
+from godai.modules.hermes import Hermes
 
 _logger = logging.getLogger("frapp.mcp_dispatch")
 
@@ -77,11 +77,12 @@ _TOOL_DEF = {
 # JSON-RPC helpers
 # ------------------------------------------------------------------
 
-def _ok(req_id: Any, result: Any) -> Dict:
+
+def _ok(req_id: Any, result: Any) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
-def _rpc_error(req_id: Any, code: int, message: str) -> Dict:
+def _rpc_error(req_id: Any, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
 
 
@@ -89,12 +90,13 @@ def _rpc_error(req_id: Any, code: int, message: str) -> Dict:
 # Router factory
 # ------------------------------------------------------------------
 
+
 def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
     """Return a FastAPI router that mounts the MCP endpoint at /mcp."""
 
     router = APIRouter(prefix="/mcp", tags=["mcp"])
 
-    async def _dispatch_tool(req_id: Any, args: Dict) -> Dict:
+    async def _dispatch_tool(req_id: Any, args: dict) -> dict:
         """Handle a tools/call for dispatch_to_desktop."""
         command = (args.get("command") or "").strip()
         if not command:
@@ -104,7 +106,8 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
         trust_level = args.get("trust_level", "basic")
         if trust_level != "basic":
             return _rpc_error(
-                req_id, -32602,
+                req_id,
+                -32602,
                 "Only trust_level='basic' is permitted from chat context. "
                 "elevated/internal require manual desktop authorisation.",
             )
@@ -133,16 +136,21 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
             try:
                 stored = bridge.get_result(cmd.command_id)
             except CommandExpiredError:
-                return _ok(req_id, {
-                    "content": [{
-                        "type": "text",
-                        "text": (
-                            f"⚠ Command `{cmd.command_id}` expired before the desktop responded. "
-                            f"The desktop agent may be offline. Re-send when it reconnects."
-                        ),
-                    }],
-                    "isError": True,
-                })
+                return _ok(
+                    req_id,
+                    {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"⚠ Command `{cmd.command_id}` expired before the desktop responded. "
+                                    f"The desktop agent may be offline. Re-send when it reconnects."
+                                ),
+                            }
+                        ],
+                        "isError": True,
+                    },
+                )
             except KeyError:
                 # Should not happen — was just enqueued
                 continue
@@ -151,33 +159,44 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
                 result_text = stored.result or "(desktop returned no output)"
                 if stored.requires_confirmation:
                     result_text = f"✓ Confirmed and executed by desktop operator.\n\n{result_text}"
-                return _ok(req_id, {
-                    "content": [{"type": "text", "text": result_text}],
-                })
+                return _ok(
+                    req_id,
+                    {
+                        "content": [{"type": "text", "text": result_text}],
+                    },
+                )
 
-        return _ok(req_id, {
-            "content": [{
-                "type": "text",
-                "text": (
-                    f"⏰ Timeout ({timeout}s): desktop did not respond. "
-                    f"Command ID: `{cmd.command_id}` — it remains queued until it expires."
-                ),
-            }],
-            "isError": True,
-        })
+        return _ok(
+            req_id,
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            f"⏰ Timeout ({timeout}s): desktop did not respond. "
+                            f"Command ID: `{cmd.command_id}` — it remains queued until it expires."
+                        ),
+                    }
+                ],
+                "isError": True,
+            },
+        )
 
-    async def _handle_rpc(msg: Dict, request: Request) -> Optional[Dict]:
+    async def _handle_rpc(msg: dict, request: Request) -> dict | None:
         """Dispatch one JSON-RPC message and return the response (or None for notifications)."""
         method = msg.get("method", "")
-        req_id = msg.get("id")        # None for notifications
+        req_id = msg.get("id")  # None for notifications
         params = msg.get("params") or {}
 
         if method == "initialize":
-            return _ok(req_id, {
-                "protocolVersion": _PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
-                "serverInfo": _SERVER_INFO,
-            })
+            return _ok(
+                req_id,
+                {
+                    "protocolVersion": _PROTOCOL_VERSION,
+                    "capabilities": {"tools": {}},
+                    "serverInfo": _SERVER_INFO,
+                },
+            )
 
         if method in ("initialized", "notifications/initialized"):
             return None  # notification — no response
@@ -220,7 +239,9 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
 
         if isinstance(body, list):
             responses = [r for msg in body if (r := await _handle_rpc(msg, request)) is not None]
-            return JSONResponse(responses if responses else None, status_code=200 if responses else 202)
+            return JSONResponse(
+                responses if responses else None, status_code=200 if responses else 202
+            )
 
         resp = await _handle_rpc(body, request)
         if resp is None:
@@ -237,6 +258,7 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
         SSE endpoint required by the MCP transport spec.
         Sends a session endpoint event and then a keepalive ping every 15 s.
         """
+
         async def _stream():
             base = str(request.base_url).rstrip("/")
             yield f"event: endpoint\ndata: {json.dumps({'uri': base + '/mcp'})}\n\n"
@@ -249,7 +271,11 @@ def build_mcp_router(bridge: DispatchBridge, hermes: Hermes) -> APIRouter:
         return StreamingResponse(
             _stream(),
             media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     return router

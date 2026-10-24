@@ -8,7 +8,7 @@ Import this module freely — it will never crash due to a missing display.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 _QT_AVAILABLE: bool = False
 
@@ -25,12 +25,14 @@ try:
         QVBoxLayout,
         QWidget,
     )
+
     _QT_AVAILABLE = True
 except ImportError:
     pass
 
 
 # ─────────────────────────────── Headless stubs ───────────────────────────────
+
 
 class _HeadlessTab:
     """No-op stub used when PyQt5 is not available."""
@@ -50,6 +52,7 @@ class _HeadlessTab:
 # ─────────────────────────────── Real Qt widget ───────────────────────────────
 
 if _QT_AVAILABLE:
+
     class ContextOSTab(QWidget):  # type: ignore[misc]
         """
         PyQt5 tab for the FraPP main window.
@@ -64,7 +67,7 @@ if _QT_AVAILABLE:
             register: Any,
             resolver: Any,
             runner: Any,
-            parent: Optional[Any] = None,
+            parent: Any | None = None,
         ) -> None:
             super().__init__(parent)
             self._register = register
@@ -141,6 +144,7 @@ if _QT_AVAILABLE:
                 entry = self._register.get_work(id_str)
             if entry:
                 import json
+
                 self._detail.setPlainText(
                     json.dumps(
                         {k: str(v) for k, v in entry.__dict__.items()},
@@ -158,6 +162,7 @@ if _QT_AVAILABLE:
             try:
                 result = self._runner.execute(mkid)
                 import json
+
                 self._detail.setPlainText(json.dumps(result, indent=2, default=str))
             except Exception as exc:
                 self._detail.setPlainText(f"Error: {exc}")

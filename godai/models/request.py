@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from enum import IntEnum, Enum
-from typing import Any, Dict
+from enum import Enum, IntEnum
+from typing import Any
 from uuid import UUID
 
 
@@ -44,10 +44,10 @@ class InternalRequest:
     request_id: UUID
     user_id: str
     trust_level: TrustLevel
-    protocol: str           # "http" | "websocket" | "grpc"
+    protocol: str  # "http" | "websocket" | "grpc"
     query: str
     data_class: DataClass
-    context: Dict[str, Any]
+    context: dict[str, Any]
     timestamp: datetime
     authenticated: bool
 

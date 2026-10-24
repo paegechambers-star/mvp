@@ -18,8 +18,11 @@ H = {"X-Scriptor-Token": TOKEN}
 @pytest.fixture
 def ctx(tmp_path):
     llm = make_llm(n_chapters=2)
-    rt = Runtime.create(Settings(workspace=str(tmp_path / "ws")), llm_factory=lambda rt: llm,
-                        include_entry_points=False)
+    rt = Runtime.create(
+        Settings(workspace=str(tmp_path / "ws")),
+        llm_factory=lambda rt: llm,
+        include_entry_points=False,
+    )
     jobs = JobManager()
     client = TestClient(create_app(rt, TOKEN, jobs))
     return client, jobs, llm, rt
@@ -44,14 +47,31 @@ def test_auth_and_host_guard(ctx):
 
 def test_book_lifecycle(ctx):
     client = ctx[0]
-    r = client.post("/api/books", headers=H, json={"title": "App Buch", "genre": "young_adult", "idea": "x"})
+    r = client.post(
+        "/api/books", headers=H, json={"title": "App Buch", "genre": "young_adult", "idea": "x"}
+    )
     slug = r.json()["slug"]
-    assert client.post("/api/books", headers=H, json={"title": "Y", "genre": "nope", "idea": "x"}).status_code == 400
+    assert (
+        client.post(
+            "/api/books", headers=H, json={"title": "Y", "genre": "nope", "idea": "x"}
+        ).status_code
+        == 400
+    )
     assert [b["slug"] for b in client.get("/api/books", headers=H).json()] == [slug]
 
-    _job(ctx, client.post(f"/api/books/{slug}/actions/bible", headers=H, json={"params": {"notes": "n"}}))
-    _job(ctx, client.post(f"/api/books/{slug}/actions/outline", headers=H, json={"params": {"chapters": 2}}))
-    job = _job(ctx, client.post(f"/api/books/{slug}/actions/write_book", headers=H, json={"params": {}}))
+    _job(
+        ctx,
+        client.post(f"/api/books/{slug}/actions/bible", headers=H, json={"params": {"notes": "n"}}),
+    )
+    _job(
+        ctx,
+        client.post(
+            f"/api/books/{slug}/actions/outline", headers=H, json={"params": {"chapters": 2}}
+        ),
+    )
+    job = _job(
+        ctx, client.post(f"/api/books/{slug}/actions/write_book", headers=H, json={"params": {}})
+    )
     assert len(job.result) == 2 and any("Kap. 1" in line for line in job.log)
 
     b = client.get(f"/api/books/{slug}", headers=H).json()
@@ -61,39 +81,76 @@ def test_book_lifecycle(ctx):
     assert ch["versions"] == [1] and ch["review"]["verdict"] == "PASS"
     r = client.put(f"/api/books/{slug}/chapters/1", headers=H, json={"text": "Meine Fassung."})
     assert r.json()["version"] == 2
-    assert client.get(f"/api/books/{slug}/chapters/1?version=2", headers=H).json()["text"].startswith("Meine")
+    assert (
+        client.get(f"/api/books/{slug}/chapters/1?version=2", headers=H)
+        .json()["text"]
+        .startswith("Meine")
+    )
     assert client.get(f"/api/books/{slug}/chapters/1?version=9", headers=H).status_code == 404
 
     _job(ctx, client.post(f"/api/books/{slug}/actions/export", headers=H, json={"params": {}}))
     dl = client.get(f"/api/books/{slug}/export/{slug}.md?token={TOKEN}")
     assert dl.status_code == 200 and "Meine Fassung." in dl.text
-    assert client.get(f"/api/books/{slug}/export/..%2F..%2Fregister.jsonl?token={TOKEN}").status_code == 404
+    assert (
+        client.get(f"/api/books/{slug}/export/..%2F..%2Fregister.jsonl?token={TOKEN}").status_code
+        == 404
+    )
 
-    job = _job(ctx, client.post(f"/api/books/{slug}/actions/export_docx", headers=H, json={"params": {}}))
+    job = _job(
+        ctx, client.post(f"/api/books/{slug}/actions/export_docx", headers=H, json={"params": {}})
+    )
     assert job.result.endswith(".docx")
-    assert client.post(f"/api/books/{slug}/actions/rm", headers=H, json={"params": {}}).status_code == 404
+    assert (
+        client.post(f"/api/books/{slug}/actions/rm", headers=H, json={"params": {}}).status_code
+        == 404
+    )
 
 
 def test_bible_patch_rules(ctx):
     client = ctx[0]
-    slug = client.post("/api/books", headers=H, json={"title": "B", "genre": "roman", "idea": "x"}).json()["slug"]
-    ok = client.patch(f"/api/books/{slug}/bible", headers=H, json={"yaml": "tone: düster", "reason": "Wunsch"})
+    slug = client.post(
+        "/api/books", headers=H, json={"title": "B", "genre": "roman", "idea": "x"}
+    ).json()["slug"]
+    ok = client.patch(
+        f"/api/books/{slug}/bible", headers=H, json={"yaml": "tone: düster", "reason": "Wunsch"}
+    )
     assert ok.status_code == 200
     assert client.get(f"/api/books/{slug}", headers=H).json()["bible"]["tone"] == "düster"
-    bad_meta = client.patch(f"/api/books/{slug}/bible", headers=H,
-                            json={"yaml": "meta: {title: X}", "reason": "r"})
+    bad_meta = client.patch(
+        f"/api/books/{slug}/bible", headers=H, json={"yaml": "meta: {title: X}", "reason": "r"}
+    )
     assert bad_meta.status_code == 400
-    assert client.patch(f"/api/books/{slug}/bible", headers=H, json={"yaml": "- liste", "reason": "r"}).status_code == 400
-    assert client.patch(f"/api/books/{slug}/bible", headers=H, json={"yaml": "a: 1", "reason": ""}).status_code == 422
+    assert (
+        client.patch(
+            f"/api/books/{slug}/bible", headers=H, json={"yaml": "- liste", "reason": "r"}
+        ).status_code
+        == 400
+    )
+    assert (
+        client.patch(
+            f"/api/books/{slug}/bible", headers=H, json={"yaml": "a: 1", "reason": ""}
+        ).status_code
+        == 422
+    )
 
 
 def test_sources_and_voice(ctx):
     client = ctx[0]
-    slug = client.post("/api/books", headers=H, json={"title": "M", "genre": "memoir", "idea": "x"}).json()["slug"]
-    r = client.post(f"/api/books/{slug}/sources", headers=H, json={"filename": "../../int.md", "content": "Kiel 1961"})
+    slug = client.post(
+        "/api/books", headers=H, json={"title": "M", "genre": "memoir", "idea": "x"}
+    ).json()["slug"]
+    r = client.post(
+        f"/api/books/{slug}/sources",
+        headers=H,
+        json={"filename": "../../int.md", "content": "Kiel 1961"},
+    )
     assert r.json()["file"] == "int.md"
-    assert client.post(f"/api/books/{slug}/sources", headers=H,
-                       json={"filename": "x.exe", "content": "x"}).status_code == 400
+    assert (
+        client.post(
+            f"/api/books/{slug}/sources", headers=H, json={"filename": "x.exe", "content": "x"}
+        ).status_code
+        == 400
+    )
     assert client.get(f"/api/books/{slug}", headers=H).json()["sources"] == ["int.md"]
     sample = {"filename": "probe.txt", "content": chapter_text(600)}
     _job(ctx, client.post(f"/api/books/{slug}/voice", headers=H, json={"samples": [sample]}))
@@ -112,16 +169,34 @@ def test_job_conflict_per_book():
 
 
 def test_agent_session_and_approval(ctx):
-    client, jobs, llm, rt = ctx
+    client, _jobs, llm, _rt = ctx
     llm._script = [
-        AgentTurn([], "tool_use", "", [{"id": "a", "name": "create_book",
-                                        "input": {"title": "Ag", "genre": "roman", "idea": "x"}}]),
-        AgentTurn([], "tool_use", "", [{"id": "b", "name": "develop_bible", "input": {"slug": "ag"}}]),
+        AgentTurn(
+            [],
+            "tool_use",
+            "",
+            [
+                {
+                    "id": "a",
+                    "name": "create_book",
+                    "input": {"title": "Ag", "genre": "roman", "idea": "x"},
+                }
+            ],
+        ),
+        AgentTurn(
+            [], "tool_use", "", [{"id": "b", "name": "develop_bible", "input": {"slug": "ag"}}]
+        ),
         AgentTurn([{"type": "text", "text": "fertig"}], "end_turn", "fertig"),
     ]
     sid = client.post("/api/agent/sessions", headers=H).json()["id"]
-    job = _job(ctx, client.post(f"/api/agent/sessions/{sid}/messages", headers=H,
-                                json={"text": "mach", "allow_expensive": False}))
+    job = _job(
+        ctx,
+        client.post(
+            f"/api/agent/sessions/{sid}/messages",
+            headers=H,
+            json={"text": "mach", "allow_expensive": False},
+        ),
+    )
     assert job.result == "fertig"
     t = client.get(f"/api/agent/sessions/{sid}", headers=H).json()["transcript"]
     kinds = [m["kind"] for m in t]
@@ -133,9 +208,13 @@ def test_agent_session_and_approval(ctx):
 
 def test_dock_route_and_settings(ctx):
     client, _, _, rt = ctx
-    slug = client.post("/api/books", headers=H, json={"title": "L", "genre": "erstleser", "idea": "x"}).json()["slug"]
+    slug = client.post(
+        "/api/books", headers=H, json={"title": "L", "genre": "erstleser", "idea": "x"}
+    ).json()["slug"]
     assert client.get(f"/api/docks/lesbarkeit/{slug}", headers=H).json() == []
     assert client.get(f"/api/docks/lesbarkeit/{slug}").status_code == 401
-    r = client.put("/api/settings", headers=H, json={"model": "claude-sonnet-5-5", "web_search": True})
+    r = client.put(
+        "/api/settings", headers=H, json={"model": "claude-sonnet-5-5", "web_search": True}
+    )
     assert r.status_code == 200 and rt.settings.model == "claude-sonnet-5-5"
     assert Settings.load().web_search is True

@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +22,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # CORS — JSON array in env: CORS_ORIGINS='["https://app.example.com"]'
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
 
     # Optional integrations
     anthropic_api_key: str = ""

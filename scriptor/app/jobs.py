@@ -8,13 +8,15 @@ zwei Schreiber dieselben Kapitel-Versionen und Register-IDs belegen.
 
 from __future__ import annotations
 
+import builtins
 import threading
 import traceback
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 class JobConflict(RuntimeError):
@@ -27,13 +29,13 @@ class Job:
     kind: str
     resource: str
     status: str = "queued"  # queued | running | done | error
-    log: List[str] = field(default_factory=list)
+    log: list[str] = field(default_factory=list)
     result: Any = None
     error: str = ""
     created: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     finished: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -43,8 +45,8 @@ JobFn = Callable[[Callable[[str], None]], Any]
 class JobManager:
     def __init__(self, workers: int = 2) -> None:
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="scriptor-job")
-        self._jobs: Dict[str, Job] = {}
-        self._busy: Dict[str, str] = {}
+        self._jobs: dict[str, Job] = {}
+        self._busy: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def submit(self, kind: str, resource: str, fn: JobFn) -> Job:
@@ -62,7 +64,7 @@ class JobManager:
         try:
             job.result = fn(job.log.append)
             job.status = "done"
-        except Exception as exc:  # noqa: BLE001 - Fehler gehören in den Job, nicht in den Thread
+        except Exception as exc:
             job.error = f"{type(exc).__name__}: {exc}"
             job.log.append(traceback.format_exc(limit=3))
             job.status = "error"
@@ -71,10 +73,10 @@ class JobManager:
             with self._lock:
                 self._busy.pop(job.resource, None)
 
-    def get(self, job_id: str) -> Optional[Job]:
+    def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
-    def list(self, limit: int = 50) -> List[Job]:
+    def list(self, limit: int = 50) -> builtins.list[Job]:
         return sorted(self._jobs.values(), key=lambda j: j.created, reverse=True)[:limit]
 
     def wait(self, job_id: str, timeout: float = 30.0) -> Job:
