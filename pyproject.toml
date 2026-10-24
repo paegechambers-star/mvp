@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "typer>=0.9.0",
     "pyyaml>=6.0",
+    "anthropic>=2.3.0",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +29,13 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["frapp*", "godai*", "contextos*"]
+include = ["frapp*", "godai*", "contextos*", "scriptor*"]
+
+[tool.setuptools.package-data]
+scriptor = ["config.yaml", "genres/*.yaml"]
+
+[project.scripts]
+scriptor = "scriptor.cli:app"
 
 [tool.black]
 line-length = 100

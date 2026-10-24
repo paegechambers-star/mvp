@@ -1,0 +1,24 @@
+id: ratgeber
+name: "Ratgeber / Selbsthilfe"
+fiction: false
+audience: "Leser:innen mit konkretem Problem"
+target_words: {min: 30000, max: 55000}
+chapters: {default: 10, words_min: 2500, words_max: 5500}
+pov_default: "Du-Ansprache (oder Sie laut Bible), Autor:in als Begleiter"
+structure:
+  - {beat: "Problem spiegeln", share: 0.1, purpose: "Leser:in fühlt sich erkannt"}
+  - {beat: "Methode/Modell", share: 0.15, purpose: "Einfaches, merkbares Framework"}
+  - {beat: "Schritte", share: 0.55, purpose: "Pro Kapitel ein Schritt mit Übung"}
+  - {beat: "Hindernisse & Rückfälle", share: 0.1, purpose: "Was tun, wenn es nicht klappt"}
+  - {beat: "Plan", share: 0.1, purpose: "Konkreter Umsetzungsplan"}
+style_rules:
+  - "Jedes Kapitel endet mit Übung/Checkliste und Kernsätzen"
+  - "Konkrete Beispiele statt Allgemeinplätze"
+  - "Medizinische/psychologische/finanzielle Aussagen mit Quelle + Hinweis auf Fachperson"
+avoid:
+  - "Heilsversprechen"
+  - "Motivationsfloskeln ohne Handlung"
+qa_checklist:
+  - "Hat jedes Kapitel eine umsetzbare Übung?"
+  - "Gibt es unbelegte Gesundheits-/Finanzbehauptungen?"
+  - "Ist das Framework einfach und konsistent benannt?"

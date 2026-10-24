@@ -1,0 +1,29 @@
+id: romance
+name: "Romance / Liebesroman"
+fiction: true
+audience: "Romance-Leser:innen"
+target_words: {min: 60000, max: 95000}
+chapters: {default: 30, words_min: 1800, words_max: 3500}
+pov_default: "Dual-POV, abwechselnd, 1. Person oder enge 3. Person"
+structure:
+  - {beat: "Getrennte Welten", share: 0.08, purpose: "Beide Wunden/Lügen"}
+  - {beat: "Meet-Cute", share: 0.05, purpose: "Funken + Reibung"}
+  - {beat: "Widerstand", share: 0.12, purpose: "Warum es nicht geht (äußerer + innerer Grund)"}
+  - {beat: "Annäherung", share: 0.2, purpose: "Tropes einlösen, Nähe wächst"}
+  - {beat: "Midpoint-Nähe", share: 0.05, purpose: "Erster Kuss / Zugeständnis"}
+  - {beat: "Zweifel", share: 0.15, purpose: "Wunden brechen auf"}
+  - {beat: "Bruch", share: 0.1, purpose: "Trennung aus Charakter, nicht aus Missverständnis"}
+  - {beat: "Grand Gesture", share: 0.15, purpose: "Wachstum beider Figuren"}
+  - {beat: "HEA/HFN", share: 0.1, purpose: "Happy End Pflicht"}
+style_rules:
+  - "Emotionale Innensicht beider Figuren, körperliche Wahrnehmung"
+  - "Spannung durch Begehren und Hindernis"
+  - "Hitze-Level gemäß Bible strikt einhalten"
+avoid:
+  - "Konflikt, den ein einziges Gespräch lösen würde"
+  - "Toxisches Verhalten unreflektiert romantisieren"
+qa_checklist:
+  - "Haben beide Figuren eigene Bögen?"
+  - "Ist der Bruch charakterbasiert?"
+  - "Gibt es ein HEA/HFN?"
+  - "Stimmt das Hitze-Level mit der Bible überein?"

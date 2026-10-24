@@ -20,3 +20,6 @@ dist/
 diagnostics/
 exports/
 logs/
+
+# SCRIPTOR Workspace (Manuskripte, vertraulich)
+scriptor-workspace/

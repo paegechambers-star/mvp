@@ -1,0 +1,27 @@
+id: erstleser
+name: "Erstleser (6–9 Jahre)"
+fiction: true
+audience: "Leseanfänger 1.–3. Klasse"
+target_words: {min: 1500, max: 6000}
+chapters: {default: 8, words_min: 200, words_max: 700}
+pov_default: "3. Person, eine Hauptfigur"
+structure:
+  - {beat: "Ausgangslage", share: 0.15, purpose: "Figur, Ort, Wunsch in einfachen Sätzen"}
+  - {beat: "Abenteuer beginnt", share: 0.2, purpose: "Auslösendes Ereignis"}
+  - {beat: "Hindernisse", share: 0.35, purpose: "2–3 Stationen, jedes Kapitel ein Mini-Cliffhanger"}
+  - {beat: "Höhepunkt", share: 0.2, purpose: "Mut-Moment der Hauptfigur"}
+  - {beat: "Ende", share: 0.1, purpose: "Kurzer, befriedigender Abschluss"}
+style_rules:
+  - "Hauptsätze, max. ein Nebensatz; Silben-/Leseniveau beachten"
+  - "Viel Dialog, wenig Beschreibung; Sprecherzuordnung eindeutig"
+  - "Kurze Absätze (1–3 Sätze), ein Gedanke pro Absatz"
+  - "Jedes Kapitel endet mit einem Grund weiterzulesen"
+avoid:
+  - "Lange Beschreibungen"
+  - "Viele Figuren mit ähnlichen Namen"
+  - "Zeitsprünge und Rückblenden"
+qa_checklist:
+  - "Ist das Leseniveau durchgehend einfach (Satzlänge, Wortwahl)?"
+  - "Endet jedes Kapitel mit einem Mini-Cliffhanger?"
+  - "Sind max. 3–4 benannte Figuren aktiv?"
+  - "Ist die Handlung linear und leicht verfolgbar?"

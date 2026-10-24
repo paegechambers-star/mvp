@@ -1,0 +1,39 @@
+# SCRIPTOR Qualitäts-Gate (Policy = Data). Änderungen versionieren.
+version: "1.0"
+
+review:
+  pass_score: 75            # Mindestscore des Lektorats (0–100)
+  max_revisions: 2          # Revisionsrunden pro Kapitel in write-book
+  word_tolerance: 0.25      # erlaubte Abweichung vom Kapitel-Wortziel (±25 %)
+  voice_tolerance: 0.35     # erlaubte rel. Abweichung vom Voice-Profil je Kennzahl
+  block_on: ["blocker"]     # Issue-Schweregrade, die ein PASS verhindern
+
+effort:                     # Claude-Effort je Arbeitsschritt
+  bible: high
+  outline: high
+  draft: high
+  review: high
+  revise: high
+  summary: low
+  voice: medium
+  document: high
+  agent: high
+
+context:
+  previous_tail_words: 1200 # Wörter vom Ende des Vorkapitels als Anschluss
+
+agent:
+  max_steps: 40             # Tool-Runden pro Auftrag
+  web_search_max_uses: 5
+  # Werkzeuge, die vor Ausführung bestätigt werden müssen (Kosten / Umfang)
+  confirm_tools: [write_book, draft_chapter, revise_chapter, develop_bible, develop_outline]
+
+# Begleitmaterial ("alles drum und dran") — Auftrag je Materialart
+materials:
+  expose: "Verlagsexposé: Titel, Genre, Zielgruppe, Umfang, Logline, Inhalt (1–2 Seiten inkl. Ende), Alleinstellung, Vergleichstitel als [VERGLEICHSTITEL PRÜFEN], Autor:innen-Platzhalter."
+  synopsis: "Synopsis für Agenturen/Verlage, max. 2 Seiten, Präsens, inkl. Auflösung/Ende."
+  klappentext: "Klappentext (max. 180 Wörter), Hook-Satz zuerst, kein Spoiler des Endes, Zielgruppe ansprechen."
+  query_letter: "Anschreiben an Literaturagentur: Hook, Kurzpitch, Eckdaten, Bio-Platzhalter [BIO], max. 1 Seite."
+  social_media: "10 Social-Media-Posts (Instagram/TikTok-Captions) zum Buch, je mit Hook und Hashtag-Vorschlägen, keine erfundenen Rezensionen."
+  leseprobe_intro: "Kurze Einleitung (max. 120 Wörter) für eine Leseprobe."
+  kapitel_inhaltsverzeichnis: "Inhaltsverzeichnis mit Kapiteltiteln und je einem Teaser-Satz."

@@ -1,0 +1,38 @@
+id: young_adult
+name: "Young Adult (YA, 14+)"
+fiction: true
+audience: "Jugendliche 14–18 und Crossover-Erwachsene"
+target_words: {min: 60000, max: 100000}
+chapters: {default: 30, words_min: 1800, words_max: 3500}
+pov_default: "1. Person Präsens oder enge 3. Person; bei Dual-POV Kapitelkopf mit Namen"
+series_support: true
+structure:
+  - {beat: "Opening Image / Stimme", share: 0.03, purpose: "Sofortige Stimme + Spannungsfrage"}
+  - {beat: "Setup & Wunde", share: 0.07, purpose: "Want vs. Need, Lüge, an die die Figur glaubt"}
+  - {beat: "Inciting Incident", share: 0.05, purpose: "Ereignis, das die alte Welt zerstört"}
+  - {beat: "Debatte", share: 0.05, purpose: "Figur zögert, Einsatz wird klar"}
+  - {beat: "Break into Two", share: 0.05, purpose: "Aktive Entscheidung für die neue Welt"}
+  - {beat: "B-Story / Beziehung", share: 0.05, purpose: "Liebe/Freundschaft, die das Thema spiegelt"}
+  - {beat: "Fun & Games", share: 0.15, purpose: "Versprechen der Prämisse einlösen"}
+  - {beat: "Midpoint", share: 0.05, purpose: "Falscher Sieg oder falsche Niederlage, Einsatz steigt"}
+  - {beat: "Bad Guys Close In", share: 0.15, purpose: "Innen + außen eskalieren"}
+  - {beat: "All Is Lost", share: 0.05, purpose: "Verlust, Lüge der Figur bricht"}
+  - {beat: "Dark Night", share: 0.05, purpose: "Erkenntnis des Need"}
+  - {beat: "Finale", share: 0.2, purpose: "Figur handelt nach neuer Wahrheit"}
+  - {beat: "Final Image / Serienhaken", share: 0.05, purpose: "Gegenbild zum Anfang; bei Serie: offener Bogen-Haken"}
+style_rules:
+  - "Unmittelbare, emotionale Innensicht; Gefühle körperlich zeigen"
+  - "Zeitgemäße, aber nicht datierte Sprache"
+  - "Jede Szene: Ziel – Konflikt – Ausgang (Scene/Sequel)"
+  - "Kapitelende mit Cliffhanger oder emotionalem Schlag"
+  - "Bei Serie: Bogen des Einzelbands schließen, Serienbogen offen halten"
+avoid:
+  - "Erwachsene Perspektive, die auf Teenager herabschaut"
+  - "Info-Dumps zu Weltbau in den ersten Kapiteln"
+  - "Romanze ohne thematische Funktion"
+qa_checklist:
+  - "Ist Want vs. Need klar und wird der Need im Finale eingelöst?"
+  - "Steigt der Einsatz an Midpoint und All Is Lost spürbar?"
+  - "Hat jede Szene Ziel, Konflikt und Ausgang?"
+  - "Ist die POV-Stimme unterscheidbar (bei Multi-POV)?"
+  - "Bei Serie: Ist der Band in sich befriedigend und der Serienhaken gesetzt?"

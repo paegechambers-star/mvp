@@ -1,0 +1,26 @@
+id: sachbuch
+name: "Sachbuch"
+fiction: false
+audience: "Interessierte Laien"
+target_words: {min: 45000, max: 80000}
+chapters: {default: 12, words_min: 3000, words_max: 7000}
+pov_default: "Autor:innenstimme, Ich-Perspektive erlaubt"
+structure:
+  - {beat: "Einleitung: Problem & Versprechen", share: 0.08, purpose: "Warum dieses Buch, warum jetzt"}
+  - {beat: "Grundlagen", share: 0.2, purpose: "Begriffe, Modell"}
+  - {beat: "Hauptteil", share: 0.55, purpose: "Kapitelweise Thesen mit Belegen und Fallbeispielen"}
+  - {beat: "Einwände", share: 0.1, purpose: "Stärkste Gegenargumente ehrlich behandeln"}
+  - {beat: "Schluss", share: 0.07, purpose: "Synthese, Ausblick"}
+style_rules:
+  - "Jede Tatsachenbehauptung mit [QUELLE: ...] markieren oder als [UNVERIFIED] kennzeichnen"
+  - "Keine erfundenen Studien, Zahlen oder Zitate"
+  - "Jedes Kapitel: These – Beleg – Beispiel – Konsequenz"
+  - "Narrative Einstiege (Szene, Anekdote) erlaubt, aber als solche erkennbar"
+avoid:
+  - "Erfundene Quellen"
+  - "Wissenschaftsjargon ohne Erklärung"
+qa_checklist:
+  - "Sind alle Fakten mit [QUELLE] oder [UNVERIFIED] markiert?"
+  - "Gibt es erfundene Zahlen, Studien oder Zitate?"
+  - "Hat jedes Kapitel eine klare These?"
+  - "Werden Gegenargumente fair behandelt?"
