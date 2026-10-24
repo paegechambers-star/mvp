@@ -82,7 +82,8 @@ class DispatchCommand:
     @property
     def expired(self) -> bool:
         age = (datetime.now(timezone.utc) - self.timestamp).total_seconds()
-        return age > self.ttl_seconds
+        # ">=": TTL 0 heißt sofort abgelaufen — auch wenn die Uhr (Windows ~15 ms) noch nicht weitergetickt hat
+        return age >= self.ttl_seconds
 
     def to_dict(self) -> dict[str, Any]:
         return {

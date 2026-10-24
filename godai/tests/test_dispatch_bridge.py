@@ -185,3 +185,26 @@ async def test_to_dict_includes_requires_confirmation(bridge: DispatchBridge) ->
 async def test_to_dict_includes_source(bridge: DispatchBridge) -> None:
     cmd = await bridge.enqueue(user_id="alice", payload="list files", source="web-chat")
     assert cmd.to_dict()["source"] == "web-chat"
+
+
+@pytest.mark.asyncio
+async def test_ttl_zero_expires_even_if_clock_has_not_ticked(
+    bridge: DispatchBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (Windows CI): die Uhr tickt dort nur ~alle 15 ms — Alter 0 muss bei TTL 0 als abgelaufen gelten."""
+    import datetime as _dt
+
+    import godai.modules.dispatch_bridge as module
+
+    frozen = _dt.datetime(2026, 10, 24, 12, 0, tzinfo=_dt.timezone.utc)
+
+    class _FrozenDateTime(_dt.datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            return frozen
+
+    monkeypatch.setattr(module, "datetime", _FrozenDateTime)
+    await bridge.enqueue(user_id="alice", payload="stale task", ttl_seconds=0)
+    assert bridge.pending() == []
+    fresh = await bridge.enqueue(user_id="alice", payload="fresh task")
+    assert [c.command_id for c in bridge.pending()] == [fresh.command_id]
