@@ -96,10 +96,16 @@ def test_book_lifecycle(ctx):
         == 404
     )
 
-    job = _job(
-        ctx, client.post(f"/api/books/{slug}/actions/export_docx", headers=H, json={"params": {}})
+    docx_resp = client.post(
+        f"/api/books/{slug}/actions/export_docx", headers=H, json={"params": {}}
     )
-    assert job.result.endswith(".docx")
+    docx_job = ctx[1].wait(docx_resp.json()["id"])
+    try:
+        import docx  # noqa: F401
+    except ImportError:  # optionales Extra: ohne python-docx muss es sauber abgelehnt werden
+        assert docx_job.status == "error" and "python-docx" in docx_job.error
+    else:
+        assert docx_job.status == "done" and docx_job.result.endswith(".docx")
     assert (
         client.post(f"/api/books/{slug}/actions/rm", headers=H, json={"params": {}}).status_code
         == 404
