@@ -6,13 +6,18 @@ die Claude-API (Default: `claude-opus-5-5`).
 
 ## Windows-App
 
-**Variante A: Installer-Skript** (empfohlen, ohne Adminrechte, Python 3.10+ nötig)
+**Variante A: Installer-Skript** (ohne Adminrechte; **Python 3.12** empfohlen, 3.10–3.13 unterstützt)
 
 ```powershell
-git clone https://github.com/paegechambers-star/mvp.git
+py install 3.12        # nur nötig, wenn 3.10–3.13 fehlt (neuer Python-Installationsmanager)
+git clone -b claude/ki-agent-ghostwriter-rqxyap https://github.com/paegechambers-star/mvp.git
 cd mvp
 PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\install.ps1
 ```
+
+Das Skript wählt automatisch 3.12 > 3.13 > 3.11 > 3.10 und ignoriert neuere Versionen (3.14/3.15):
+für diese gibt es noch keine fertigen Pakete, pip würde einen C++-Compiler verlangen.
+Eigene Python-Version erzwingen: `install.ps1 -Python C:\Pfad\zu\python.exe`.
 
 Das Skript legt `%LOCALAPPDATA%\Scriptor\venv` und eine Verknüpfung **SCRIPTOR** auf dem
 Desktop und im Startmenü an. Die App öffnet sich in einem eigenen Fenster (Edge WebView2,

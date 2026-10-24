@@ -31,8 +31,12 @@ Das Büro arbeitet mit Claude (einer KI von Anthropic). Dafür brauchst du einen
 
 **Weg B: mit Python** (wenn Weg A nicht klappt)
 
-1. Python von <https://www.python.org/downloads/windows/> installieren. Beim Installieren
-   **„Add python.exe to PATH“** anhaken.
+1. Python **3.12** installieren. Nicht die neueste Version: Für 3.14/3.15 gibt es noch keine
+   fertigen Pakete, dann scheitert die Installation mit „Microsoft Visual C++ 14.0 required“.
+   - Hast du schon den neuen Python-Installationsmanager (der Befehl `py` funktioniert),
+     tippst du in PowerShell: `py install 3.12`
+   - sonst: <https://www.python.org/downloads/windows/> → Python 3.12.x → beim Installieren
+     **„Add python.exe to PATH“** anhaken.
 2. Auf GitHub im Repo den Branch `claude/ki-agent-ghostwriter-rqxyap` wählen, dann
    **Code → Download ZIP**, und die ZIP entpacken.
 3. Im entpackten Ordner in die Adresszeile des Explorers `powershell` tippen und Enter drücken.
@@ -121,6 +125,7 @@ es mit einem anderen Modell unter **Einstellungen → Modell**, dann aber mit we
 
 | Problem | Lösung |
 |---|---|
+| „Keine passende Python-Version gefunden“ oder „Microsoft Visual C++ 14.0 required“ | `py install 3.12`, dann das Installer-Skript erneut starten. Die alte Umgebung wird automatisch ersetzt |
 | Rot: „API-Key fehlt“ | Schritt 3 wiederholen |
 | Job zeigt **error** | Fehlermeldung unten rechts lesen. Häufig: Guthaben leer oder Key falsch |
 | „Für book:… läuft bereits Job“ | Warten. Pro Buch arbeitet immer nur ein Job |
