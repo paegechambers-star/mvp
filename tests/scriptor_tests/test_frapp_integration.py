@@ -12,7 +12,9 @@ from frapp.docks import Dock, load_docks
 
 
 def _client():
-    return TestClient(frapp_app), frapp_app.state.scriptor_token
+    client = TestClient(frapp_app)
+    client.__enter__()  # Lifespan ausführen (init_db) wie im echten Start
+    return client, frapp_app.state.scriptor_token
 
 
 def test_frapp_and_scriptor_share_one_server():

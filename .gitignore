@@ -23,3 +23,6 @@ logs/
 
 # SCRIPTOR Workspace (Manuskripte, vertraulich)
 scriptor-workspace/
+# Runtime databases (never commit — use Alembic migrations instead)
+*.db
+*.sqlite

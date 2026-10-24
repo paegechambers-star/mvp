@@ -1,21 +1,43 @@
 # FraPP + G.O.D.A.I. Dependencies
-# Last audited: 2026-04-14 | See LICENSES.md for license details
+# Last audited: 2026-04-19 | See LICENSES.md for license details
 
 # ── FraPP / API ──────────────────────────────────────────────
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 sqlmodel>=0.0.14
+tzdata>=2024.1               # Zeitzonen unter Windows (zoneinfo)
 pydantic-settings>=2.0.0
 typer>=0.9.0
 
 # ── G.O.D.A.I. ───────────────────────────────────────────────
 pyyaml>=6.0
+pyjwt>=2.8.0                # JWT token signing for HERMES
+
+# ── Database drivers ──────────────────────────────────────────
+psycopg2-binary>=2.9.0      # PostgreSQL support (optional — SQLite works without)
 
 # ── ContextOS ────────────────────────────────────────────────
 networkx>=3.0
 
-# ── SCRIPTOR (Ghostwriter-Agent) ─────────────────────────────
-anthropic>=2.3.0
+# ── Anthropic SDK (required for AnthropicProvider) ───────────
+anthropic>=2.3.0            # SCRIPTOR + AnthropicProvider
+
+# ── Observability ─────────────────────────────────────────────
+structlog>=24.0.0                         # Structured JSON logging (Q2)
+prometheus-fastapi-instrumentator>=7.0.0  # Prometheus /metrics endpoint (Q3)
+prometheus-client>=0.20.0                 # Custom gauges
+
+# ── Rate limiting ─────────────────────────────────────────────
+slowapi>=0.1.9               # HTTP rate limiting (K2)
+redis>=4.0.0                 # Redis backend for slowapi (optional — in-memory fallback)
+limits>=3.6.0                # Required by slowapi
+
+# ── Local / offline LLM (optional) ───────────────────────────
+# OllamaProvider uses httpx (already listed below) — no extra deps.
+# LlamaCppProvider requires llama-cpp-python (CPU/GPU):
+#   pip install llama-cpp-python
+#   CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python   # GPU
+# Install Ollama runtime: bash scripts/install_local_llm.sh
 
 # ── Testing ──────────────────────────────────────────────────
 pytest>=7.4.0
