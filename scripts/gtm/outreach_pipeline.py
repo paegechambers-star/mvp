@@ -17,7 +17,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 
 BOLD = "\033[1m"
 CYAN = "\033[96m"
@@ -25,7 +25,7 @@ GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-TODAY = date.today().isoformat()  # noqa: DTZ011 - lokales Datum für Dateinamen
+TODAY = datetime.now(timezone.utc).astimezone().date().isoformat()  # lokales Datum
 
 
 # ── Ideal Customer Profiles ───────────────────────────────────────────────────

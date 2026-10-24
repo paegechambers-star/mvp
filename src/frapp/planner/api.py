@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -122,8 +122,8 @@ def day_plan(
     target = day or stamp.berlin.date()
     try:
         # nur Uhrzeit (HH:MM) — Zeitzone kommt aus dem Tag (Europe/Berlin)
-        t_start = datetime.strptime(start, "%H:%M").time()  # noqa: DTZ007
-        t_end = datetime.strptime(end, "%H:%M").time()  # noqa: DTZ007
+        t_start = time.fromisoformat(start)
+        t_end = time.fromisoformat(end)
     except ValueError:
         raise HTTPException(status_code=422, detail="start/end im Format HH:MM")
     if t_end <= t_start:
