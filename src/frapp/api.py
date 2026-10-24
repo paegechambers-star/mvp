@@ -35,12 +35,6 @@ async def lifespan(app: FastAPI):
         json_logs=(settings.env == "production"),
     )
     init_db()
-    mnemosyne = Mnemosyne()
-    hermes = Hermes(mnemosyne=mnemosyne)
-    bridge = DispatchBridge(mnemosyne=mnemosyne)
-    app.include_router(build_router(bridge, hermes))
-    app.include_router(build_mcp_router(bridge, hermes))
-    app.include_router(chat_router)
     yield
 
 
@@ -445,6 +439,13 @@ def admin_usage(
 from .godai_router import router as godai_router  # noqa: E402
 
 app.include_router(godai_router, dependencies=[Depends(require_api_key)])
+
+
+# ── Tagesplaner: Aufgaben + Tagesplan (Truth-Gate, 4D-Matrix, PTB-Zeit) ───────
+from .planner import models as _planner_models  # noqa: E402,F401 - Tabelle registrieren
+from .planner.api import router as planner_router  # noqa: E402
+
+app.include_router(planner_router, dependencies=[Depends(require_api_key)])
 
 
 # ── Dispatch Handy → Desktop, MCP und Chat (G.O.D.A.I. Dispatch-Bridge) ──────
