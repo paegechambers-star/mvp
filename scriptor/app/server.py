@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 from scriptor import __version__
 from scriptor.agent import Agent
 from scriptor.app.jobs import JobConflict, JobManager
-from scriptor.chat import ChatError, ChatNotFound, ChatStore, stream_reply
+from scriptor.chat import ChatError, ChatNotFound, ChatStore, decide, stream_reply
 from scriptor.genres import GenreError, all_genres
 from scriptor.ghostwriter import Ghostwriter, load_config
 from scriptor.project import BookProject, ProjectError, _dump
@@ -95,6 +95,11 @@ class ApiKeyIn(BaseModel):
 class ChatNew(BaseModel):
     system: str = ""
     data_class: str = "INTERNAL"
+    tools: bool = True
+
+
+class ChatDecision(BaseModel):
+    accept: bool
 
 
 class ChatMessageIn(BaseModel):
@@ -251,6 +256,10 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
     def chats() -> ChatStore:
         return ChatStore(rt.workspace)
 
+    def toolkits() -> list[Any]:
+        # von der Host-App gesetzt (FraPP: Kalender/Aufgaben); SCRIPTOR allein: keine
+        return list(getattr(app.state, "chat_toolkits", []))
+
     @app.exception_handler(ChatError)
     async def _chat_error(request: Request, exc: ChatError) -> JSONResponse:
         code = 404 if isinstance(exc, ChatNotFound) else 400
@@ -262,7 +271,7 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
 
     @app.post("/api/chats")
     def chat_new(body: ChatNew) -> dict[str, Any]:
-        return chats().create(body.system, body.data_class)
+        return chats().create(body.system, body.data_class, body.tools)
 
     @app.get("/api/chats/{chat_id}")
     def chat_get(chat_id: str) -> dict[str, Any]:
@@ -277,7 +286,9 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
     def chat_send(chat_id: str, body: ChatMessageIn) -> StreamingResponse:
         store = chats()
         store.get(chat_id)  # 404 vor Streambeginn
-        events = stream_reply(store, chat_id, body.text, rt.llm(), rt.settings.active_model())
+        events = stream_reply(
+            store, chat_id, body.text, rt.llm(), rt.settings.active_model(), toolkits()
+        )
 
         def ndjson() -> Any:
             import json
@@ -286,6 +297,23 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
                 yield json.dumps(ev, ensure_ascii=False) + "\n"
 
         return StreamingResponse(ndjson(), media_type="application/x-ndjson")
+
+    @app.post("/api/chats/{chat_id}/proposals/{pid}")
+    def chat_decide(chat_id: str, pid: str, body: ChatDecision) -> dict[str, Any]:
+        try:
+            return decide(chats(), chat_id, pid, body.accept, toolkits())
+        except ChatError:
+            raise
+        except ValueError as exc:  # apply() hat abgelehnt, z. B. Termin inzwischen gelöscht
+            raise HTTPException(409, str(exc))
+
+    @app.get("/api/chat-tools")
+    def chat_tools() -> list[dict[str, Any]]:
+        return [
+            {"toolkit": k.name, "name": t.name, "writes": t.writes, "description": t.description}
+            for k in toolkits()
+            for t in k.tools
+        ]
 
     @app.get("/api/genres")
     def genres() -> list[dict[str, Any]]:

@@ -164,3 +164,51 @@ def test_ollama_chat_stream():
     )
     with pytest.raises(LLMError, match="ollama pull"):
         list(missing.chat_stream("S", [{"role": "user", "content": "Hi"}]))
+
+
+def test_proposal_endpoint_and_conflict(tmp_path):
+    from scriptor.chat import ChatTool, ChatToolkit, Proposal
+    from scriptor.llm import AgentTurn
+
+    applied = []
+
+    def apply(payload):
+        if payload["n"] == 2:
+            raise ValueError("Termin existiert nicht mehr")
+        applied.append(payload)
+        return "gespeichert"
+
+    tool = ChatTool(
+        "make",
+        "x",
+        {"type": "object", "properties": {}},
+        prepare=lambda a: Proposal(f"Mach {a['n']}", {"n": a["n"]}),
+        apply=apply,
+    )
+    turns = [
+        AgentTurn(
+            [],
+            "tool_use",
+            "",
+            [
+                {"id": "1", "name": "make", "input": {"n": 1}},
+                {"id": "2", "name": "make", "input": {"n": 2}},
+            ],
+        ),
+        AgentTurn([], "end_turn", "Bitte bestätigen."),
+    ]
+    client, _ = _app(tmp_path, FakeLLM(agent_script=turns))
+    client.app.state.chat_toolkits = [ChatToolkit("t", [tool])]
+    assert client.get("/api/chat-tools", headers=H).json()[0]["writes"] is True
+    chat = client.post("/api/chats", json={}, headers=H).json()
+    ev = _events(client.post(f"/api/chats/{chat['id']}/messages", json={"text": "los"}, headers=H))
+    pids = [e["proposal"]["id"] for e in ev if "proposal" in e]
+    assert pids == ["p1", "p2"] and applied == []
+    url = f"/api/chats/{chat['id']}/proposals/"
+    assert client.post(url + "p1", json={"accept": True}, headers=H).json()["status"] == "accepted"
+    assert applied == [{"n": 1}]
+    r = client.post(url + "p2", json={"accept": True}, headers=H)
+    assert r.status_code == 409 and "existiert nicht mehr" in r.json()["detail"]
+    assert client.post(url + "p2", json={"accept": False}, headers=H).json()["status"] == "rejected"
+    assert client.post(url + "p9", json={"accept": True}, headers=H).status_code == 404
+    assert client.post(url + "p1", json={"accept": False}, headers=H).status_code == 400

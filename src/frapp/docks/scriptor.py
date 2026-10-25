@@ -33,8 +33,12 @@ class ScriptorDock(Dock):
     def mount(self, app: Any) -> None:
         from scriptor.app.server import create_app
 
+        from ..chat_tools import calendar_toolkit
+
         sub = create_app(self.runtime, self.token)
         sub.state.host_app = "FraPP"
+        # Chat darf Kalender/Aufgaben lesen und Änderungen vorschlagen (Bestätigung im Chat)
+        sub.state.chat_toolkits = [calendar_toolkit()]
         app.mount(MOUNT_PATH, sub)
         app.state.scriptor_token = self.token
 

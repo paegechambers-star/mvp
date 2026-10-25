@@ -20,6 +20,16 @@ Verläufe liegen als JSON unter `<Workspace>\chats\` (Standard `Dokumente\Script
 Jede Nachricht läuft durch G.O.D.A.I. (HERMES → THEMIS → MNEMOSYNE) mit der gewählten
 Datenklasse. An das Modell gehen die letzten 40 Nachrichten.
 
+### Termine per Chat
+
+Mit Haken „Kalender“ (Standard) darf der Chat Termine, Aufgaben und den Tagesplan
+**lesen** (Antwort mit Quelle `Termin #ID`) und Änderungen **vorschlagen**: Termin
+anlegen/ändern/löschen, Aufgabe anlegen. Ein Vorschlag erscheint als Karte mit
+deterministischem Text und Konfliktwarnungen; geschrieben wird erst nach „Übernehmen“.
+„Morgen“/„nächsten Dienstag“ löst das Modell über die PTB-Zeit auf, die es im
+Systemprompt bekommt (inkl. Wochentag→Datum der nächsten 14 Tage). Im Werkzeug-Modus
+kommt die Antwort am Stück statt Wort für Wort; ohne Haken wird gestreamt.
+
 ## Lokale KI mit Ollama (ohne API-Key, offline)
 
 FraPP kann statt Claude ein lokales Modell über [Ollama](https://ollama.com) nutzen,

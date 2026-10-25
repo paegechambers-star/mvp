@@ -72,6 +72,11 @@ iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
 .chatmain{display:flex;flex-direction:column;margin:0}
 .chatmain .chat{flex:1;max-height:none;padding:4px 2px}
 .chatmain .msg.bot .meta{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+.prop{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:9px 12px;max-width:85%;background:var(--panel)}
+.prop.accepted{border-left-color:var(--ok)}.prop.rejected{border-left-color:var(--float);opacity:.75}
+.prop .warn{color:var(--warn);font-size:12px}
+.prop .act{display:flex;gap:6px;margin-top:6px;align-items:center}
+.msg.note,.msg.tool{background:none;color:var(--muted);font-size:12px;padding:0 4px}
 .chatin{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
 .chatin textarea{min-height:52px;max-height:30vh}
 @media (max-width:900px){.chatwrap{grid-template-columns:1fr;height:auto}}
@@ -192,6 +197,7 @@ iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
   <div class="chatwrap">
     <div class="card chatlist">
       <div class="row" style="margin-bottom:6px">
+        <label class="fit" style="display:flex;gap:4px;align-items:center;margin:0" title="Chat darf Kalender/Aufgaben lesen und Änderungen vorschlagen (ohne: Antworten Wort für Wort)"><input type="checkbox" id="ch-tools" checked style="width:auto"> Kalender</label>
         <select id="ch-class" title="Datenklasse für neue Chats (G.O.D.A.I./THEMIS)"><option>PUBLIC</option><option selected>INTERNAL</option><option>SENSITIVE</option><option>RESTRICTED</option></select>
         <button class="btn primary fit" id="ch-new">+ Neu</button>
       </div>
@@ -432,23 +438,43 @@ async function loadChats() {
   } catch (e) { $("#ch-list").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 }
 function bubble(role, text, meta) {
-  const d = document.createElement("div"); d.className = "msg " + (role === "user" ? "user" : role === "error" ? "err" : "bot");
+  const d = document.createElement("div"); d.className = "msg " + ({user: "user", error: "err", note: "note", tool: "tool"}[role] || "bot");
   const t = document.createElement("span"); t.textContent = text; d.appendChild(t);
   if (meta) { const m = document.createElement("span"); m.className = "meta"; m.textContent = meta; d.appendChild(m); }
   $("#ch-msgs").appendChild(d); $("#ch-msgs").scrollTop = 1e9; return t;
 }
+const PSTATE = {pending: "wartet auf Bestätigung", accepted: "übernommen", rejected: "verworfen"};
+function propCard(p) {
+  const d = document.createElement("div"); d.className = "prop " + p.status;
+  d.innerHTML = `<div><strong>Vorschlag ${esc(p.id)}</strong> · ${esc(p.summary)}</div>` +
+    (p.warnings || []).map(w => `<div class="warn">⚠ ${esc(w)}</div>`).join("") +
+    `<div class="act">` + (p.status === "pending"
+      ? `<button class="btn primary small" data-a="1">Übernehmen</button><button class="btn small" data-a="0">Verwerfen</button>`
+      : `<span class="muted">${esc(PSTATE[p.status] || p.status)}${p.result ? " – " + esc(p.result) : ""}</span>`) + `</div>`;
+  d.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => {
+    d.querySelectorAll("button").forEach(x => x.disabled = true);
+    try { await sapi(`/api/chats/${CHAT.id}/proposals/${p.id}`, {method: "POST", body: {accept: b.dataset.a === "1"}}); }
+    catch (e) { fail(e); }
+    openChat(CHAT.id);
+  });
+  $("#ch-msgs").appendChild(d); $("#ch-msgs").scrollTop = 1e9;
+}
 function renderChat() {
   $("#ch-msgs").innerHTML = "";
-  $("#ch-title").textContent = CHAT ? CHAT.title + " · " + CHAT.data_class : "Chat";
+  $("#ch-title").textContent = CHAT ? CHAT.title + " · " + CHAT.data_class + (CHAT.tools === false ? "" : " · Kalender") : "Chat";
   if (!CHAT) return;
   if (!CHAT.messages.length) $("#ch-msgs").innerHTML = `<p class="muted">Schreib die erste Nachricht.</p>`;
-  CHAT.messages.forEach(m => bubble(m.role, m.content, m.role === "assistant" ? (m.model || "") + (m.incomplete ? " · abgebrochen" : "") : ""));
+  CHAT.messages.forEach(m => {
+    if (m.kind === "note") return bubble("note", m.content);
+    if (m.content) bubble(m.role, m.content, m.role === "assistant" ? (m.model || "") + (m.incomplete ? " · abgebrochen" : "") : "");
+    (m.proposals || []).forEach(pid => CHAT.proposals[pid] && propCard({id: pid, ...CHAT.proposals[pid]}));
+  });
 }
 async function openChat(id) { try { CHAT = await sapi("/api/chats/" + id); renderChat(); loadChats(); } catch (e) { fail(e); } }
-$("#ch-new").onclick = async () => { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value}}); renderChat(); loadChats(); $("#ch-in").focus(); } catch (e) { fail(e); } };
+$("#ch-new").onclick = async () => { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value, tools: $("#ch-tools").checked}}); renderChat(); loadChats(); $("#ch-in").focus(); } catch (e) { fail(e); } };
 async function sendChat() {
   const text = $("#ch-in").value.trim(); if (!text || chatAbort) return;
-  if (!CHAT) { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value}}); } catch (e) { return fail(e); } }
+  if (!CHAT) { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value, tools: $("#ch-tools").checked}}); } catch (e) { return fail(e); } }
   if (!CHAT.messages.length) $("#ch-msgs").innerHTML = "";
   $("#ch-in").value = ""; bubble("user", text);
   const out = bubble("assistant", "…");
@@ -464,6 +490,8 @@ async function sendChat() {
         const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line) continue;
         const ev = JSON.parse(line);
         if (ev.delta) { got += ev.delta; out.textContent = got; $("#ch-msgs").scrollTop = 1e9; }
+        if (ev.tool) bubble("tool", "Werkzeug: " + ev.tool + " " + JSON.stringify(ev.input));
+        if (ev.proposal) propCard(ev.proposal);
         if (ev.error) bubble("error", ev.error);
       }
     }
