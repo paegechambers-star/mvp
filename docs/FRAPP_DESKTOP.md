@@ -12,6 +12,14 @@ Ein Fenster, fünf Bereiche. Start: Desktop-Verknüpfung **FraPP** oder `frapp a
 
 Zusätzlich aktiv (aus dem Dispatch-Branch): `/mobile/*`, `/mcp`, `/chat`.
 
+## Chat
+
+Tab **Chat**: freies Gespräch mit dem eingestellten Modell (Ollama lokal oder Claude),
+Antworten erscheinen Wort für Wort, „Stopp“ bricht ab (bisheriger Teil bleibt gespeichert).
+Verläufe liegen als JSON unter `<Workspace>\chats\` (Standard `Dokumente\Scriptor\chats`).
+Jede Nachricht läuft durch G.O.D.A.I. (HERMES → THEMIS → MNEMOSYNE) mit der gewählten
+Datenklasse. An das Modell gehen die letzten 40 Nachrichten.
+
 ## Lokale KI mit Ollama (ohne API-Key, offline)
 
 FraPP kann statt Claude ein lokales Modell über [Ollama](https://ollama.com) nutzen,

@@ -62,6 +62,19 @@ th{color:var(--muted);font-weight:500;white-space:nowrap}
 .msg.err{background:none;color:var(--bad);font-size:13px}
 iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
 .hidden{display:none !important}
+.chatwrap{display:grid;grid-template-columns:240px 1fr;gap:14px;height:calc(100vh - 92px)}
+.chatwrap>*{min-width:0}
+.chatlist{overflow:auto;display:flex;flex-direction:column;gap:2px}
+.chatlist a{display:flex;justify-content:space-between;gap:6px;padding:7px 9px;border-radius:6px;cursor:pointer;color:inherit;text-decoration:none}
+.chatlist a:hover{background:var(--soft)}.chatlist a.active{background:var(--soft);font-weight:600}
+.chatlist a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatlist a button{visibility:hidden}.chatlist a:hover button{visibility:visible}
+.chatmain{display:flex;flex-direction:column;margin:0}
+.chatmain .chat{flex:1;max-height:none;padding:4px 2px}
+.chatmain .msg.bot .meta{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+.chatin{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+.chatin textarea{min-height:52px;max-height:30vh}
+@media (max-width:900px){.chatwrap{grid-template-columns:1fr;height:auto}}
 .err{color:var(--bad)}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}main{padding:12px}}
 </style>
@@ -72,6 +85,7 @@ iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
   <nav id="nav">
     <button data-view="plan" class="active">Tagesplan</button>
     <button data-view="cal">Kalender</button>
+    <button data-view="chat">Chat</button>
     <button data-view="scriptor">Scriptor</button>
     <button data-view="godai">G.O.D.A.I.</button>
     <button data-view="ctx">ContextOS</button>
@@ -173,6 +187,31 @@ iframe{border:0;flex:1;width:100%;min-height:calc(100vh - 54px)}
   <iframe id="scriptor-frame" title="Scriptor"></iframe>
 </main>
 
+<!-- CHAT -->
+<main id="view-chat" class="hidden">
+  <div class="chatwrap">
+    <div class="card chatlist">
+      <div class="row" style="margin-bottom:6px">
+        <select id="ch-class" title="Datenklasse für neue Chats (G.O.D.A.I./THEMIS)"><option>PUBLIC</option><option selected>INTERNAL</option><option>SENSITIVE</option><option>RESTRICTED</option></select>
+        <button class="btn primary fit" id="ch-new">+ Neu</button>
+      </div>
+      <div id="ch-list"></div>
+    </div>
+    <div class="card chatmain">
+      <div class="row" style="align-items:center;margin-bottom:8px">
+        <strong id="ch-title" style="flex:1">Chat</strong>
+        <span id="ch-model" class="badge fit"></span>
+      </div>
+      <div id="ch-msgs" class="chat"><p class="muted">Neuen Chat starten oder links einen auswählen. Enter = senden, Umschalt+Enter = neue Zeile.</p></div>
+      <div class="chatin">
+        <textarea id="ch-in" placeholder="Nachricht …"></textarea>
+        <button class="btn primary fit" id="ch-send">Senden</button>
+        <button class="btn fit hidden" id="ch-stop">Stopp</button>
+      </div>
+    </div>
+  </div>
+</main>
+
 <!-- G.O.D.A.I. -->
 <main id="view-godai" class="hidden">
   <div class="grid2">
@@ -250,11 +289,12 @@ const fail = (e) => alert("Fehler: " + e.message);
 let scriptorLoaded = false;
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
-  ["plan", "cal", "scriptor", "godai", "ctx"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
+  ["plan", "cal", "chat", "scriptor", "godai", "ctx"].forEach(v => $("#view-" + v).classList.toggle("hidden", v !== b.dataset.view));
   if (b.dataset.view === "scriptor" && !scriptorLoaded) { $("#scriptor-frame").src = "/scriptor/#token=" + encodeURIComponent(TOKEN); scriptorLoaded = true; }
   if (b.dataset.view === "cal") loadWeek();
   if (b.dataset.view === "godai") loadGodai();
   if (b.dataset.view === "ctx") loadCtx();
+  if (b.dataset.view === "chat") loadChats();
 });
 
 // ------------------------------------------------ Kopf: Uhr + Health
@@ -361,6 +401,80 @@ $("#c-prev").onclick = () => { weekStart.setDate(weekStart.getDate() - 7); loadW
 $("#c-next").onclick = () => { weekStart.setDate(weekStart.getDate() + 7); loadWeek(); };
 $("#c-today").onclick = () => { weekStart = new Date(); const wd = (weekStart.getDay() + 6) % 7; weekStart.setDate(weekStart.getDate() - wd); loadWeek(); };
 resetForm();
+
+// ------------------------------------------------ Chat
+// Läuft über das SCRIPTOR-Dock: gleiches Modell (Ollama/Claude) und G.O.D.A.I.-Prüfung.
+const sapi = (path, opts = {}) => fetch("/scriptor" + path, {
+  method: opts.method || "GET", signal: opts.signal,
+  headers: {"Content-Type": "application/json", "X-Scriptor-Token": TOKEN},
+  body: opts.body ? JSON.stringify(opts.body) : undefined,
+}).then(async res => {
+  if (res.ok) return opts.raw ? res : res.json();
+  const d = await res.json().catch(() => ({}));
+  throw new Error(typeof d.detail === "string" ? d.detail : res.statusText);
+});
+let CHAT = null, chatAbort = null;
+async function loadChats() {
+  try {
+    const info = await sapi("/api/info");
+    $("#ch-model").textContent = info.model + (info.provider === "ollama" ? " · lokal" : "");
+    $("#ch-model").className = "badge fit " + (info.provider !== "ollama" && info.api_key === "missing" ? "bad" : "ok");
+    const list = await sapi("/api/chats");
+    $("#ch-list").innerHTML = list.length ? list.map(c => `<a data-id="${esc(c.id)}" class="${CHAT && CHAT.id === c.id ? "active" : ""}"><span title="${esc(c.title)}">${esc(c.title)}</span><button class="btn small" data-del="${esc(c.id)}" title="Löschen">×</button></a>`).join("")
+      : `<p class="muted">Noch keine Chats.</p>`;
+    document.querySelectorAll("#ch-list a").forEach(a => a.onclick = (e) => { if (!e.target.dataset.del) openChat(a.dataset.id); });
+    document.querySelectorAll("#ch-list [data-del]").forEach(b => b.onclick = async () => {
+      if (!confirm("Chat löschen?")) return;
+      await sapi("/api/chats/" + b.dataset.del, {method: "DELETE"}).catch(fail);
+      if (CHAT && CHAT.id === b.dataset.del) { CHAT = null; renderChat(); }
+      loadChats();
+    });
+  } catch (e) { $("#ch-list").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+function bubble(role, text, meta) {
+  const d = document.createElement("div"); d.className = "msg " + (role === "user" ? "user" : role === "error" ? "err" : "bot");
+  const t = document.createElement("span"); t.textContent = text; d.appendChild(t);
+  if (meta) { const m = document.createElement("span"); m.className = "meta"; m.textContent = meta; d.appendChild(m); }
+  $("#ch-msgs").appendChild(d); $("#ch-msgs").scrollTop = 1e9; return t;
+}
+function renderChat() {
+  $("#ch-msgs").innerHTML = "";
+  $("#ch-title").textContent = CHAT ? CHAT.title + " · " + CHAT.data_class : "Chat";
+  if (!CHAT) return;
+  if (!CHAT.messages.length) $("#ch-msgs").innerHTML = `<p class="muted">Schreib die erste Nachricht.</p>`;
+  CHAT.messages.forEach(m => bubble(m.role, m.content, m.role === "assistant" ? (m.model || "") + (m.incomplete ? " · abgebrochen" : "") : ""));
+}
+async function openChat(id) { try { CHAT = await sapi("/api/chats/" + id); renderChat(); loadChats(); } catch (e) { fail(e); } }
+$("#ch-new").onclick = async () => { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value}}); renderChat(); loadChats(); $("#ch-in").focus(); } catch (e) { fail(e); } };
+async function sendChat() {
+  const text = $("#ch-in").value.trim(); if (!text || chatAbort) return;
+  if (!CHAT) { try { CHAT = await sapi("/api/chats", {method: "POST", body: {data_class: $("#ch-class").value}}); } catch (e) { return fail(e); } }
+  if (!CHAT.messages.length) $("#ch-msgs").innerHTML = "";
+  $("#ch-in").value = ""; bubble("user", text);
+  const out = bubble("assistant", "…");
+  chatAbort = new AbortController(); $("#ch-send").classList.add("hidden"); $("#ch-stop").classList.remove("hidden");
+  let got = "";
+  try {
+    const res = await sapi(`/api/chats/${CHAT.id}/messages`, {method: "POST", body: {text}, signal: chatAbort.signal, raw: true});
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const {value, done} = await reader.read(); if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i; while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.delta) { got += ev.delta; out.textContent = got; $("#ch-msgs").scrollTop = 1e9; }
+        if (ev.error) bubble("error", ev.error);
+      }
+    }
+    if (!got) out.parentElement.remove();
+  } catch (e) { if (e.name !== "AbortError") bubble("error", e.message); else if (!got) out.parentElement.remove(); }
+  chatAbort = null; $("#ch-send").classList.remove("hidden"); $("#ch-stop").classList.add("hidden");
+  const id = CHAT.id; setTimeout(() => openChat(id), 300);
+}
+$("#ch-send").onclick = sendChat;
+$("#ch-stop").onclick = () => chatAbort && chatAbort.abort();
+$("#ch-in").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
 
 // ------------------------------------------------ G.O.D.A.I.
 let JWT = null;

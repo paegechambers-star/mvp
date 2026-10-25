@@ -19,7 +19,7 @@ import json
 import os
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -76,6 +76,12 @@ class LLM(Protocol):
         *,
         effort: str = "high",
     ) -> AgentTurn: ...
+
+    def chat_stream(
+        self, system: str, messages: list[dict[str, str]], *, max_tokens: int = 8000
+    ) -> Iterator[str]:
+        """Freier Chat: liefert die Antwort stückweise (``messages``: role/content-Strings)."""
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +220,27 @@ class AnthropicLLM:
             ],
         )
 
+    def chat_stream(
+        self, system: str, messages: list[dict[str, str]], *, max_tokens: int = 8000
+    ) -> Iterator[str]:
+        with self._client.beta.messages.stream(
+            model=self._model,
+            max_tokens=max_tokens,
+            system=system,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "medium"},
+            cache_control={"type": "ephemeral"},
+            betas=[_FALLBACK_BETA],
+            fallbacks="default",
+            messages=messages,
+        ) as stream:
+            yield from stream.text_stream
+            message = stream.get_final_message()
+        last = messages[-1]["content"] if messages else ""
+        self._audit.llm_call("chat", message.model, last, message.stop_reason, message.usage)
+        if message.stop_reason == "refusal":
+            self._check("chat", message)
+
 
 # ---------------------------------------------------------------------------
 # OllamaLLM
@@ -234,6 +261,38 @@ class _Usage:
 
 def _block(b: Any, key: str) -> Any:
     return b.get(key) if isinstance(b, dict) else getattr(b, key, None)
+
+
+class _ThinkFilter:
+    """Entfernt ``<think>…</think>`` aus einem Token-Strom (Tags können über Chunks verteilt sein)."""
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._inside = False
+
+    def feed(self, chunk: str) -> str:
+        self._buf += chunk
+        out = []
+        while self._buf:
+            tag = "</think>" if self._inside else "<think>"
+            i = self._buf.find(tag)
+            if i >= 0:
+                if not self._inside:
+                    out.append(self._buf[:i])
+                self._buf = self._buf[i + len(tag) :]
+                self._inside = not self._inside
+                continue
+            # möglichen Tag-Anfang am Ende zurückhalten
+            keep = next((k for k in range(len(tag) - 1, 0, -1) if self._buf.endswith(tag[:k])), 0)
+            if not self._inside:
+                out.append(self._buf[: len(self._buf) - keep])
+            self._buf = self._buf[len(self._buf) - keep :] if keep else ""
+            break
+        return "".join(out)
+
+    def flush(self) -> str:
+        rest, self._buf = ("" if self._inside else self._buf), ""
+        return rest
 
 
 class OllamaLLM:
@@ -451,6 +510,53 @@ class OllamaLLM:
         content += [{"type": "tool_use", **c} for c in calls]
         return AgentTurn(content=content, stop_reason=stop, text=text, tool_calls=calls)
 
+    def chat_stream(
+        self, system: str, messages: list[dict[str, str]], *, max_tokens: int = 8000
+    ) -> Iterator[str]:
+        import httpx
+
+        payload = {
+            "model": self._model,
+            "stream": True,
+            "messages": [{"role": "system", "content": system}, *messages],
+            "options": self._options(max_tokens),
+        }
+        final: dict[str, Any] = {}
+        try:
+            with self._client.stream("POST", "/api/chat", json=payload) as r:
+                if r.status_code == 404:
+                    raise LLMError(
+                        f"[chat] Modell '{self._model}' ist nicht installiert: "
+                        f"ollama pull {self._model}"
+                    )
+                if r.status_code >= 400:
+                    r.read()
+                    raise LLMError(f"[chat] Ollama-Fehler {r.status_code}: {r.text[:300]}")
+                flt = _ThinkFilter()
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    ev = json.loads(line)
+                    if "error" in ev:
+                        raise LLMError(f"[chat] Ollama: {ev['error']}")
+                    piece = flt.feed(str(ev.get("message", {}).get("content", "")))
+                    if piece:
+                        yield piece
+                    if ev.get("done"):
+                        final = ev
+                tail = flt.flush()
+                if tail:
+                    yield tail
+        except httpx.HTTPError as exc:
+            raise LLMError(
+                f"[chat] Verbindung zu Ollama ({self._base_url}) fehlgeschlagen — "
+                f"läuft Ollama? (Startmenü → Ollama, oder 'ollama serve'). {exc}"
+            ) from exc
+        stop = "max_tokens" if final.get("done_reason") == "length" else "end_turn"
+        usage = _Usage(final.get("prompt_eval_count"), final.get("eval_count"))
+        last = messages[-1]["content"] if messages else ""
+        self._audit.llm_call("chat", self.model, last, stop, usage)
+
 
 def ollama_status(base_url: str = DEFAULT_OLLAMA_URL, client: Any = None) -> dict[str, Any]:
     """Erreichbarkeit, Version und installierte Modelle des lokalen Ollama-Servers."""
@@ -509,6 +615,13 @@ class FakeLLM:
     def complete_json(self, role, system, prompt, schema, *, effort="high") -> dict[str, Any]:
         out = self._respond(role, system, prompt)
         return dict(out) if out is not None else {}
+
+    def chat_stream(self, system, messages, *, max_tokens=8000) -> Iterator[str]:
+        last = messages[-1]["content"] if messages else ""
+        out = self._respond("chat", system, last)
+        text = str(out) if out is not None else f"Echo: {last}"
+        for word in text.split(" "):
+            yield word + " "
 
     def agent_turn(self, system, messages, tools, *, effort="high") -> AgentTurn:
         self.calls.append({"role": "agent", "system": system, "messages": list(messages)})

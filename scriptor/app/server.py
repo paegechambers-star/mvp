@@ -17,12 +17,18 @@ from typing import Any
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from pydantic import BaseModel, Field
 
 from scriptor import __version__
 from scriptor.agent import Agent
 from scriptor.app.jobs import JobConflict, JobManager
+from scriptor.chat import ChatError, ChatNotFound, ChatStore, stream_reply
 from scriptor.genres import GenreError, all_genres
 from scriptor.ghostwriter import Ghostwriter, load_config
 from scriptor.project import BookProject, ProjectError, _dump
@@ -84,6 +90,15 @@ class SettingsIn(BaseModel):
 
 class ApiKeyIn(BaseModel):
     key: str
+
+
+class ChatNew(BaseModel):
+    system: str = ""
+    data_class: str = "INTERNAL"
+
+
+class ChatMessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=50_000)
 
 
 class OllamaPullIn(BaseModel):
@@ -230,6 +245,47 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
             return f"{body.model} installiert"
 
         return jobs.submit("ollama pull", f"ollama:{body.model}", run).to_dict()
+
+    # -- Chat ----------------------------------------------------------
+
+    def chats() -> ChatStore:
+        return ChatStore(rt.workspace)
+
+    @app.exception_handler(ChatError)
+    async def _chat_error(request: Request, exc: ChatError) -> JSONResponse:
+        code = 404 if isinstance(exc, ChatNotFound) else 400
+        return JSONResponse({"detail": str(exc)}, status_code=code)
+
+    @app.get("/api/chats")
+    def chat_list() -> list[dict[str, Any]]:
+        return chats().list()
+
+    @app.post("/api/chats")
+    def chat_new(body: ChatNew) -> dict[str, Any]:
+        return chats().create(body.system, body.data_class)
+
+    @app.get("/api/chats/{chat_id}")
+    def chat_get(chat_id: str) -> dict[str, Any]:
+        return chats().get(chat_id)
+
+    @app.delete("/api/chats/{chat_id}")
+    def chat_delete(chat_id: str) -> dict[str, Any]:
+        chats().delete(chat_id)
+        return {"deleted": chat_id}
+
+    @app.post("/api/chats/{chat_id}/messages")
+    def chat_send(chat_id: str, body: ChatMessageIn) -> StreamingResponse:
+        store = chats()
+        store.get(chat_id)  # 404 vor Streambeginn
+        events = stream_reply(store, chat_id, body.text, rt.llm(), rt.settings.active_model())
+
+        def ndjson() -> Any:
+            import json
+
+            for ev in events:
+                yield json.dumps(ev, ensure_ascii=False) + "\n"
+
+        return StreamingResponse(ndjson(), media_type="application/x-ndjson")
 
     @app.get("/api/genres")
     def genres() -> list[dict[str, Any]]:

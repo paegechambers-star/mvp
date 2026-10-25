@@ -80,3 +80,20 @@ def test_agent_turn_extracts_tool_calls():
     )
     assert turn.tool_calls == [{"id": "t1", "name": "list_books", "input": {}}]
     assert "tool_choice" not in client.params
+
+
+def test_chat_stream_yields_text_and_audits():
+    msg = _msg("Hallo Welt")
+    client = _Client(msg)
+    _Stream.text_stream = property(lambda self: iter(["Hallo ", "Welt"]))
+    audit = AuditLog()
+    llm = AnthropicLLM(audit, client=client)
+    out = "".join(llm.chat_stream("sys", [{"role": "user", "content": "Hi"}]))
+    assert out == "Hallo Welt"
+    assert client.params["messages"] == [{"role": "user", "content": "Hi"}]
+    assert client.params["thinking"] == {"type": "adaptive"}
+    assert audit.entries[-1]["data"]["role"] == "chat"
+
+    refused = AnthropicLLM(AuditLog(), client=_Client(_msg("", stop="refusal")))
+    with pytest.raises(LLMError, match="abgelehnt"):
+        list(refused.chat_stream("sys", [{"role": "user", "content": "x"}]))

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypeVar
@@ -202,3 +202,16 @@ class GovernedLLM:
             "agent", last, lambda: self.inner.agent_turn(system, messages, tools, effort=effort)
         )
         return turn
+
+    def chat_stream(self, system, messages, *, max_tokens=8000) -> Iterator[str]:
+        last = str(messages[-1]["content"]) if messages else ""
+        self.gov.check("chat", last, self.data_class, self.book)
+        try:
+            yield from self.inner.chat_stream(system, messages, max_tokens=max_tokens)
+        except GeneratorExit:
+            self.gov.record("chat", self.model, False, "vom Nutzer abgebrochen")
+            raise
+        except Exception as exc:
+            self.gov.record("chat", self.model, False, f"{type(exc).__name__}: {exc}")
+            raise
+        self.gov.record("chat", self.model, True)
