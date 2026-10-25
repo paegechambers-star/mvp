@@ -12,6 +12,30 @@ Ein Fenster, fünf Bereiche. Start: Desktop-Verknüpfung **FraPP** oder `frapp a
 
 Zusätzlich aktiv (aus dem Dispatch-Branch): `/mobile/*`, `/mcp`, `/chat`.
 
+## Lokale KI mit Ollama (ohne API-Key, offline)
+
+FraPP kann statt Claude ein lokales Modell über [Ollama](https://ollama.com) nutzen,
+für SCRIPTOR **und** G.O.D.A.I. Texte verlassen den Rechner dann nicht.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\ollama.ps1            # qwen3:8b
+powershell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\ollama.ps1 -Model qwen3:4b
+```
+
+Das Skript installiert Ollama (winget, sonst offizieller Installer), startet den Server
+auf `http://localhost:11434`, lädt das Modell und stellt FraPP auf `ollama` um.
+Umschalten jederzeit: Scriptor → Einstellungen → KI-Anbieter (gilt ab dem nächsten
+Auftrag, ohne Neustart). Dort auch: installierte Modelle, „Modell herunterladen“,
+Kontextfenster (Standard 16 384 Tokens).
+
+CLI: `frapp scriptor config --provider ollama --ollama-model qwen3:8b` · zurück:
+`--provider anthropic`. G.O.D.A.I. folgt der SCRIPTOR-Einstellung; `FRAPP_LLM_PROVIDER`
+(`anthropic|ollama|echo`) überschreibt das.
+
+Grenzen (ASSUMPTION, hängt von Modell und Hardware ab): lokale 4–8B-Modelle schreiben
+deutlich schwächer als Claude und brauchen pro Kapitel Minuten statt Sekunden; der
+Agent-Chat braucht ein Modell mit Tool-Calling (qwen3, llama3.1); Websuche gibt es lokal nicht.
+
 ## Tagesplaner-Regeln
 - Termine aus dem FraPP-Kalender: **HARD, VERIFIED**, Quelle = Termin-ID.
 - HARD-Aufgaben brauchen eine feste Uhrzeit. SOFT, dann FLOAT werden in freie Lücken gelegt —

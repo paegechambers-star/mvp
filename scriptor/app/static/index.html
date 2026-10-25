@@ -152,13 +152,29 @@ th{color:var(--muted);font-weight:500}
     <div class="card" style="max-width:720px">
       <h2>Einstellungen</h2>
       <label>Workspace-Ordner (Bücher, Exporte)</label><input id="st-workspace">
-      <label>Modell</label>
-      <select id="st-model">
-        <option value="claude-opus-5-5">Claude Opus 5.5 (Standard)</option>
-        <option value="claude-fable-5-1">Claude Fable 5.1 (stärkstes, teuerstes)</option>
-        <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (günstiger)</option>
-        <option value="claude-haiku-5-5">Claude Haiku 5.5 (am günstigsten)</option>
+      <label>KI-Anbieter</label>
+      <select id="st-provider">
+        <option value="anthropic">Claude (Anthropic, Cloud — API-Key nötig)</option>
+        <option value="ollama">Ollama (lokal auf diesem PC — kein Key, offline)</option>
       </select>
+      <div id="st-claude">
+        <label>Claude-Modell</label>
+        <select id="st-model">
+          <option value="claude-opus-5-5">Claude Opus 5.5 (Standard)</option>
+          <option value="claude-fable-5-1">Claude Fable 5.1 (stärkstes, teuerstes)</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (günstiger)</option>
+          <option value="claude-haiku-5-5">Claude Haiku 5.5 (am günstigsten)</option>
+        </select>
+      </div>
+      <div id="st-ollama" class="hidden">
+        <p class="muted" id="ol-state">Prüfe Ollama …</p>
+        <label>Ollama-Adresse</label><input id="st-ollama-url" placeholder="http://localhost:11434">
+        <label>Lokales Modell</label>
+        <div class="row"><input id="st-ollama-model" list="ol-models" placeholder="qwen3:8b"><button class="btn fit" id="ol-refresh">Neu prüfen</button><button class="btn fit" id="ol-pull">Modell herunterladen</button></div>
+        <datalist id="ol-models"></datalist>
+        <label>Kontextfenster (Tokens)</label><input id="st-ollama-ctx" type="number" min="2048" step="1024">
+        <p class="muted">Empfehlung: <b>qwen3:8b</b> (ca. 5 GB, 16 GB RAM) · schwächerer PC: <b>qwen3:4b</b> · Agent-Chat braucht ein Modell mit Werkzeug-Unterstützung. Websuche gibt es lokal nicht.</p>
+      </div>
       <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="st-web" style="width:auto"> Websuche für den Agenten erlauben</label>
       <div style="margin-top:10px"><button class="btn primary" id="st-save">Speichern</button></div>
       <h3>Anthropic API-Key</h3>
@@ -236,8 +252,11 @@ async function loadInfo() {
   $("#model").textContent = INFO.model;
   if (INFO.host && INFO.host !== "SCRIPTOR") { $("header h1").textContent = INFO.host + " · SCRIPTOR"; document.title = INFO.host + " · SCRIPTOR"; }
   const k = $("#keystate");
-  k.textContent = INFO.api_key === "missing" ? "API-Key fehlt" : "API-Key: " + INFO.api_key;
-  k.className = "badge " + (INFO.api_key === "missing" ? "bad" : "ok");
+  if (INFO.provider === "ollama") { k.textContent = "lokal · Ollama"; k.className = "badge ok"; }
+  else {
+    k.textContent = INFO.api_key === "missing" ? "API-Key fehlt" : "API-Key: " + INFO.api_key;
+    k.className = "badge " + (INFO.api_key === "missing" ? "bad" : "ok");
+  }
   GENRES = await api("/api/genres");
   $("#nb-genre").innerHTML = GENRES.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("");
 }
@@ -521,14 +540,43 @@ async function loadSystem() {
 }
 
 // ---------------------------------------------------------------- Einstellungen
+function showProvider() {
+  const ol = $("#st-provider").value === "ollama";
+  $("#st-ollama").classList.toggle("hidden", !ol); $("#st-claude").classList.toggle("hidden", ol);
+  if (ol) checkOllama();
+}
+async function checkOllama() {
+  const st = $("#ol-state");
+  try {
+    const o = await api("/api/ollama");
+    $("#ol-models").innerHTML = (o.models || []).map(m => `<option value="${esc(m)}">`).join("");
+    if (!o.reachable) { st.innerHTML = `<span class="err">Ollama nicht erreichbar unter ${esc(o.url)}.</span> Ollama installieren/starten (ollama.com), dann „Neu prüfen“.`; return; }
+    const want = $("#st-ollama-model").value.trim();
+    const has = (o.models || []).some(m => m === want || m === want + ":latest");
+    st.innerHTML = `<span class="pass">Ollama ${esc(o.version)} läuft.</span> Installiert: ${o.models.length ? esc(o.models.join(", ")) : "keine Modelle"}` +
+      (want && !has ? ` · <span class="err">„${esc(want)}“ fehlt → „Modell herunterladen“</span>` : "");
+  } catch (e) { st.textContent = "Fehler: " + e.message; }
+}
+$("#st-provider").onchange = showProvider;
+$("#ol-refresh").onclick = checkOllama;
+$("#ol-pull").onclick = () => {
+  const model = $("#st-ollama-model").value.trim();
+  if (!model) return alert("Erst einen Modellnamen eintragen, z. B. qwen3:8b");
+  api("/api/ollama/pull", {method: "POST", body: {model}}).then(j => watchJob(j, () => checkOllama())).catch(fail);
+};
 async function loadSettings() {
   const s = await api("/api/settings");
   $("#st-workspace").value = s.workspace || s.workspace_resolved;
+  $("#st-provider").value = s.provider || "anthropic";
   $("#st-model").value = s.model; $("#st-web").checked = s.web_search;
+  $("#st-ollama-url").value = s.ollama_url; $("#st-ollama-model").value = s.ollama_model; $("#st-ollama-ctx").value = s.ollama_num_ctx;
+  showProvider();
 }
 $("#st-save").onclick = () => api("/api/settings", {method: "PUT", body: {
-    workspace: $("#st-workspace").value, model: $("#st-model").value, web_search: $("#st-web").checked}})
-  .then(() => { alert("Gespeichert. Workspace-Änderungen wirken nach Neustart."); loadInfo(); }).catch(fail);
+    workspace: $("#st-workspace").value, provider: $("#st-provider").value, model: $("#st-model").value,
+    ollama_url: $("#st-ollama-url").value.trim(), ollama_model: $("#st-ollama-model").value.trim(),
+    ollama_num_ctx: parseInt($("#st-ollama-ctx").value, 10) || 16384, web_search: $("#st-web").checked}})
+  .then(() => { alert("Gespeichert. Der Anbieter gilt ab dem nächsten Auftrag; Workspace-Änderungen nach Neustart."); loadInfo(); }).catch(fail);
 $("#st-key-save").onclick = () => api("/api/settings/api-key", {method: "PUT", body: {key: $("#st-key").value}})
   .then(() => { $("#st-key").value = ""; loadInfo(); alert("API-Key gespeichert."); }).catch(fail);
 

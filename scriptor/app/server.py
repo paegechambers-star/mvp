@@ -72,7 +72,11 @@ class ActionIn(BaseModel):
 
 class SettingsIn(BaseModel):
     workspace: str | None = None
+    provider: str | None = Field(None, pattern="^(anthropic|ollama)$")
     model: str | None = None
+    ollama_url: str | None = None
+    ollama_model: str | None = None
+    ollama_num_ctx: int | None = Field(None, ge=2048, le=262144)
     web_search: bool | None = None
     enabled_plugins: list[str] | None = None
     disabled_docks: list[str] | None = None
@@ -80,6 +84,10 @@ class SettingsIn(BaseModel):
 
 class ApiKeyIn(BaseModel):
     key: str
+
+
+class OllamaPullIn(BaseModel):
+    model: str = Field(min_length=1, pattern=r"^[A-Za-z0-9._:/-]+$")
 
 
 class AgentMessage(BaseModel):
@@ -151,7 +159,8 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
     def info() -> dict[str, Any]:
         return {
             "version": __version__,
-            "model": rt.settings.model,
+            "model": rt.settings.active_model(),
+            "provider": rt.settings.provider,
             "api_key": api_key_status(),
             "workspace": str(rt.workspace),
             "plugin_dir": str(rt.settings.plugin_dir()),
@@ -185,6 +194,42 @@ def create_app(rt: Runtime, token: str, jobs: JobManager | None = None) -> FastA
                 501, "Kein OS-Tresor verfügbar — ANTHROPIC_API_KEY als Umgebungsvariable setzen"
             )
         return {"api_key": api_key_status()}
+
+    @app.get("/api/ollama")
+    def ollama() -> dict[str, Any]:
+        from scriptor.llm import ollama_status
+
+        return {**ollama_status(rt.settings.ollama_url), "model": rt.settings.ollama_model}
+
+    @app.post("/api/ollama/pull")
+    def ollama_pull(body: OllamaPullIn) -> dict[str, Any]:
+        url = rt.settings.ollama_url.rstrip("/")
+
+        def run(log: Callable[[str], None]) -> str:
+            import json
+
+            import httpx
+
+            last = ""
+            with httpx.stream(
+                "POST", f"{url}/api/pull", json={"model": body.model}, timeout=None
+            ) as r:
+                r.raise_for_status()
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    ev = json.loads(line)
+                    if "error" in ev:
+                        raise RuntimeError(ev["error"])
+                    status = str(ev.get("status", ""))
+                    if ev.get("total"):
+                        status += f" {int(100 * ev.get('completed', 0) / ev['total'])} %"
+                    if status != last:
+                        log(status)
+                        last = status
+            return f"{body.model} installiert"
+
+        return jobs.submit("ollama pull", f"ollama:{body.model}", run).to_dict()
 
     @app.get("/api/genres")
     def genres() -> list[dict[str, Any]]:

@@ -367,7 +367,7 @@ let JWT = null;
 async function loadGodai() {
   try {
     const s = await api("/v1/godai/status");
-    $("#g-status").innerHTML = `<div>Provider: <strong>${esc(s.provider)}</strong>${s.provider === "EchoProvider" ? ` <span class="s-UNVERIFIED">(kein API-Key – Antworten sind nur ein Echo)</span>` : ""}</div>
+    $("#g-status").innerHTML = `<div>Provider: <strong>${esc(s.provider)}</strong>${s.provider === "EchoProvider" ? ` <span class="s-UNVERIFIED">(kein API-Key, Ollama nicht gewählt – Antworten sind nur ein Echo)</span>` : ""}${s.provider.startsWith("OllamaProvider") ? ` <span class="muted">(lokal; der von APOLLON gewählte Modellname wird nur protokolliert)</span>` : ""}</div>
       <div>MNEMOSYNE: ${s.audit_entries} Einträge · Kette <span class="${s.chain_valid ? "s-VERIFIED" : "err"}">${s.chain_valid ? "intakt" : "GEBROCHEN"}</span></div>`;
     const a = await api("/v1/godai/audit?limit=200");
     $("#g-audit").innerHTML = `<tr><th>#</th><th>Modul</th><th>Ereignis</th><th>Details</th></tr>` +

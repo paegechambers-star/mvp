@@ -342,6 +342,9 @@ def docks() -> None:
 def config_cmd(
     workspace: Path | None = typer.Option(None, "--set-workspace"),
     model: str | None = typer.Option(None, "--set-model"),
+    provider: str | None = typer.Option(None, "--provider", help="anthropic | ollama"),
+    ollama_model: str | None = typer.Option(None, "--ollama-model", help="z. B. qwen3:8b"),
+    ollama_url: str | None = typer.Option(None, "--ollama-url"),
     api_key: str | None = typer.Option(None, "--set-api-key", help="Im OS-Tresor speichern"),
     enable_plugin: str | None = typer.Option(None, "--enable-plugin"),
     disable_plugin: str | None = typer.Option(None, "--disable-plugin"),
@@ -352,6 +355,15 @@ def config_cmd(
         s.workspace = str(workspace.resolve())
     if model:
         s.model = model
+    if provider:
+        if provider not in ("anthropic", "ollama"):
+            typer.secho("--provider: anthropic oder ollama", fg="red", err=True)
+            raise typer.Exit(2)
+        s.provider = provider
+    if ollama_model:
+        s.ollama_model = ollama_model
+    if ollama_url:
+        s.ollama_url = ollama_url
     if enable_plugin and enable_plugin not in s.enabled_plugins:
         s.enabled_plugins.append(enable_plugin)
     if disable_plugin and disable_plugin in s.enabled_plugins:
@@ -363,8 +375,16 @@ def config_cmd(
     s.save()
     typer.echo(f"Einstellungen: {Settings.path()}")
     typer.echo(f"Workspace:     {s.workspace_path()}")
-    typer.echo(f"Modell:        {s.model}")
-    typer.echo(f"API-Key:       {api_key_status()}")
+    typer.echo(f"Anbieter:      {s.provider}")
+    typer.echo(f"Modell:        {s.active_model()}")
+    if s.provider == "ollama":
+        from scriptor.llm import ollama_status
+
+        st = ollama_status(s.ollama_url)
+        state = f"läuft ({st['version']}), Modelle: {', '.join(st['models']) or '—'}"
+        typer.echo(f"Ollama:        {state if st['reachable'] else 'nicht erreichbar'}")
+    else:
+        typer.echo(f"API-Key:       {api_key_status()}")
     typer.echo(f"Plugins frei:  {', '.join(s.enabled_plugins) or '—'}")
 
 

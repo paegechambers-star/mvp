@@ -26,6 +26,11 @@ class Settings(BaseSettings):
 
     # Optional integrations
     anthropic_api_key: str = ""
+    # G.O.D.A.I.-Backend: "" = automatisch (SCRIPTOR-Einstellung, sonst Claude mit Key,
+    # sonst Echo) | "anthropic" | "ollama" | "echo"
+    llm_provider: str = ""
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3:8b"
     redis_url: str = ""
 
 

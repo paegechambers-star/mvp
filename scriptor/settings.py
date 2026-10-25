@@ -46,7 +46,13 @@ def default_workspace_dir() -> Path:
 @dataclass
 class Settings:
     workspace: str = ""
+    # KI-Anbieter: "anthropic" (Claude, Cloud, API-Key) | "ollama" (lokal, kein Key)
+    provider: str = "anthropic"
     model: str = "claude-opus-5-5"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3:8b"
+    # Kontextfenster für Ollama (Tokens); Ollamas Standard ist für Kapitel zu klein
+    ollama_num_ctx: int = 16384
     web_search: bool = False
     # Jeder Claude-Aufruf läuft durch G.O.D.A.I. (HERMES/THEMIS/MNEMOSYNE)
     governance: bool = True
@@ -70,6 +76,12 @@ class Settings:
         s = cls(**{k: v for k, v in data.items() if k in known})
         if os.environ.get("SCRIPTOR_MODEL"):
             s.model = os.environ["SCRIPTOR_MODEL"]
+        if os.environ.get("SCRIPTOR_PROVIDER"):
+            s.provider = os.environ["SCRIPTOR_PROVIDER"]
+        if os.environ.get("SCRIPTOR_OLLAMA_URL"):
+            s.ollama_url = os.environ["SCRIPTOR_OLLAMA_URL"]
+        if os.environ.get("SCRIPTOR_OLLAMA_MODEL"):
+            s.ollama_model = os.environ["SCRIPTOR_OLLAMA_MODEL"]
         return s
 
     def save(self) -> None:
@@ -77,6 +89,9 @@ class Settings:
         self.path().write_text(
             json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8"
         )
+
+    def active_model(self) -> str:
+        return f"ollama:{self.ollama_model}" if self.provider == "ollama" else self.model
 
     def workspace_path(self) -> Path:
         env = os.environ.get("SCRIPTOR_HOME")

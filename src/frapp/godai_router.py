@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from godai.models.request import TrustLevel
 from godai.modules.hermes import create_token
 from godai.pipeline import GodaiPipeline
-from godai.providers import AnthropicProvider, EchoProvider
+from godai.providers import AnthropicProvider, EchoProvider, OllamaProvider
 
 from .settings import settings
 
@@ -23,30 +23,55 @@ _logger = logging.getLogger("frapp.godai_router")
 
 router = APIRouter(prefix="/v1/godai", tags=["G.O.D.A.I."])
 
-# Singleton pipeline — created once at first request
+# Pipeline — einmal pro Backend-Wahl gebaut; wechselt die Wahl (z. B. in den
+# SCRIPTOR-Einstellungen auf Ollama), wird sie neu aufgebaut.
 _pipeline: GodaiPipeline | None = None
+_pipeline_key: tuple[str, str, str] | None = None
+
+
+def _backend() -> tuple[str, str, str]:
+    """(provider, ollama_url, ollama_model) — SSOT: FRAPP_LLM_PROVIDER, sonst SCRIPTOR-Einstellung."""
+    provider, url, model = settings.llm_provider, settings.ollama_url, settings.ollama_model
+    if not provider:
+        try:
+            from scriptor.settings import Settings as ScriptorSettings
+
+            s = ScriptorSettings.load()
+            if s.provider == "ollama":
+                provider, url, model = "ollama", s.ollama_url, s.ollama_model
+        except Exception as exc:  # SCRIPTOR nicht installiert oder Einstellungen unlesbar
+            _logger.debug("SCRIPTOR-Einstellungen nicht lesbar: %s", exc)
+    if provider in ("", "anthropic"):
+        provider = "anthropic" if settings.anthropic_api_key else "echo"
+    return provider, url, model
+
+
+def _provider_label(key: tuple[str, str, str]) -> str:
+    provider, _, model = key
+    if provider == "ollama":
+        return f"OllamaProvider ({model})"
+    return "AnthropicProvider" if provider == "anthropic" else "EchoProvider"
 
 
 def _get_pipeline() -> GodaiPipeline:
-    global _pipeline
-    if _pipeline is None:
-        if settings.anthropic_api_key:
-            provider = AnthropicProvider(
-                api_key=settings.anthropic_api_key,
-                max_tokens=2048,
-            )
-            _logger.info("G.O.D.A.I. pipeline initialised (AnthropicProvider, claude-opus-4-7)")
+    global _pipeline, _pipeline_key
+    key = _backend()
+    if _pipeline is None or key != _pipeline_key:
+        provider_name, url, model = key
+        provider: Any
+        if provider_name == "ollama":
+            provider = OllamaProvider(model=model, base_url=url, max_tokens=2048, timeout=600.0)
+        elif provider_name == "anthropic":
+            provider = AnthropicProvider(api_key=settings.anthropic_api_key, max_tokens=2048)
         else:
             provider = EchoProvider()
-            _logger.info(
-                "G.O.D.A.I. pipeline initialised (EchoProvider, dev_mode=%s)",
-                settings.env != "production",
-            )
+        _logger.info("G.O.D.A.I. pipeline initialised (%s)", _provider_label(key))
         _pipeline = GodaiPipeline.create(
             llm_provider=provider,
             secret_key=settings.secret_key,
             dev_mode=(settings.env != "production"),
         )
+        _pipeline_key = key
     return _pipeline
 
 
@@ -184,7 +209,7 @@ def godai_status():
         chain_valid = pipeline.mnemosyne.verify_chain()
     except Exception:
         chain_valid = False
-    provider_name = "AnthropicProvider" if settings.anthropic_api_key else "EchoProvider"
+    provider_name = _provider_label(_pipeline_key or _backend())
     return {
         "status": "ok",
         "audit_entries": len(pipeline.mnemosyne),

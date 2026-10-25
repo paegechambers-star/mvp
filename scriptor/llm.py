@@ -1,10 +1,12 @@
 """
 LLM-Schicht für SCRIPTOR.
 
-Zwei Implementierungen desselben Protokolls:
+Drei Implementierungen desselben Protokolls:
 
   AnthropicLLM — echte Claude-API (Streaming, adaptive Thinking, Effort-Steuerung,
                  serverseitiger Refusal-Fallback, Prompt-Caching).
+  OllamaLLM    — lokales Modell über Ollama (http://localhost:11434). Kein Key, keine
+                 Cloud; Texte verlassen den Rechner nicht.
   FakeLLM      — deterministischer Stub für Tests und Offline-Läufe. Keine Netzaufrufe.
 
 Jeder Aufruf wird über :class:`~scriptor.audit.AuditLog` protokolliert
@@ -15,6 +17,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -209,6 +213,256 @@ class AnthropicLLM:
                 if b.type == "tool_use"
             ],
         )
+
+
+# ---------------------------------------------------------------------------
+# OllamaLLM
+# ---------------------------------------------------------------------------
+
+DEFAULT_OLLAMA_URL = "http://localhost:11434"
+DEFAULT_OLLAMA_MODEL = "qwen3:8b"
+
+_THINK = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+
+@dataclass
+class _Usage:
+    input_tokens: int | None
+    output_tokens: int | None
+    cache_read_input_tokens: None = None
+
+
+def _block(b: Any, key: str) -> Any:
+    return b.get(key) if isinstance(b, dict) else getattr(b, key, None)
+
+
+class OllamaLLM:
+    """
+    Lokales Backend über die Ollama-HTTP-API (``/api/chat``).
+
+    - ``effort`` wird ignoriert (lokale Modelle kennen das nicht).
+    - ``complete_json`` nutzt Ollamas strukturierte Ausgabe (``format`` = JSON-Schema).
+    - ``agent_turn`` übersetzt Werkzeuge und Verlauf zwischen Anthropic- und
+      Ollama-Format; das Modell muss Tool-Calling können (z. B. qwen3, llama3.1).
+    - Serverseitige Werkzeuge (Websuche) gibt es lokal nicht — sie werden ausgelassen.
+    """
+
+    def __init__(
+        self,
+        audit: AuditLog,
+        model: str = DEFAULT_OLLAMA_MODEL,
+        base_url: str = DEFAULT_OLLAMA_URL,
+        num_ctx: int = 16384,
+        timeout: float = 1800.0,
+        client: Any = None,
+    ) -> None:
+        if client is None:
+            import httpx
+
+            client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
+        self._client = client
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+        self._num_ctx = num_ctx
+        self._audit = audit
+
+    @property
+    def model(self) -> str:
+        return f"ollama:{self._model}"
+
+    def _chat(self, role: str, payload: dict[str, Any]) -> dict[str, Any]:
+        payload = {"model": self._model, "stream": False, **payload}
+        try:
+            r = self._client.post("/api/chat", json=payload)
+        except Exception as exc:
+            raise LLMError(
+                f"[{role}] Ollama nicht erreichbar unter {self._base_url} — "
+                f"läuft Ollama? (Startmenü → Ollama, oder 'ollama serve'). {exc}"
+            ) from exc
+        if r.status_code == 404:
+            raise LLMError(
+                f"[{role}] Modell '{self._model}' ist nicht installiert: ollama pull {self._model}"
+            )
+        if r.status_code >= 400:
+            raise LLMError(f"[{role}] Ollama-Fehler {r.status_code}: {r.text[:300]}")
+        return dict(r.json())
+
+    def _options(self, max_tokens: int) -> dict[str, Any]:
+        return {"num_ctx": self._num_ctx, "num_predict": min(max_tokens, self._num_ctx)}
+
+    def _finish(self, role: str, prompt: str, data: dict[str, Any]) -> str:
+        stop = "max_tokens" if data.get("done_reason") == "length" else "end_turn"
+        usage = _Usage(data.get("prompt_eval_count"), data.get("eval_count"))
+        self._audit.llm_call(role, self.model, prompt, stop, usage)
+        if stop == "max_tokens":
+            raise LLMError(
+                f"[{role}] Ausgabe abgeschnitten (Kontext {self._num_ctx} Tokens zu klein?)"
+            )
+        return _THINK.sub("", str(data.get("message", {}).get("content", ""))).strip()
+
+    def complete(
+        self,
+        role: str,
+        system: str,
+        prompt: str,
+        *,
+        effort: str = "high",
+        max_tokens: int = 64000,
+    ) -> str:
+        data = self._chat(
+            role,
+            {
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                "options": self._options(max_tokens),
+            },
+        )
+        return self._finish(role, prompt, data)
+
+    def complete_json(
+        self,
+        role: str,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        *,
+        effort: str = "high",
+    ) -> dict[str, Any]:
+        data = self._chat(
+            role,
+            {
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                "format": schema,
+                "options": self._options(32000),
+            },
+        )
+        text = self._finish(role, prompt, data)
+        try:
+            return dict(json.loads(text))
+        except json.JSONDecodeError:
+            m = re.search(r"\{.*\}", text, re.DOTALL)
+            if m:
+                try:
+                    return dict(json.loads(m.group(0)))
+                except json.JSONDecodeError:
+                    pass
+            raise LLMError(f"[{role}] Ungültiges JSON vom lokalen Modell") from None
+
+    @staticmethod
+    def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": t.get("input_schema", {"type": "object", "properties": {}}),
+                },
+            }
+            for t in tools
+            if "input_schema" in t  # serverseitige Werkzeuge (type=web_search_…) auslassen
+        ]
+
+    @staticmethod
+    def _messages(system: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = [{"role": "system", "content": system}]
+        names: dict[str, str] = {}
+        for m in messages:
+            content = m["content"]
+            if isinstance(content, str):
+                out.append({"role": m["role"], "content": content})
+                continue
+            if m["role"] == "assistant":
+                text, calls = [], []
+                for b in content:
+                    kind = _block(b, "type")
+                    if kind == "text":
+                        text.append(str(_block(b, "text")))
+                    elif kind == "tool_use":
+                        names[str(_block(b, "id"))] = str(_block(b, "name"))
+                        calls.append(
+                            {
+                                "function": {
+                                    "name": _block(b, "name"),
+                                    "arguments": _block(b, "input") or {},
+                                }
+                            }
+                        )
+                msg: dict[str, Any] = {"role": "assistant", "content": "".join(text)}
+                if calls:
+                    msg["tool_calls"] = calls
+                out.append(msg)
+                continue
+            for b in content:
+                if _block(b, "type") == "tool_result":
+                    out.append(
+                        {
+                            "role": "tool",
+                            "content": str(_block(b, "content")),
+                            "tool_name": names.get(str(_block(b, "tool_use_id")), ""),
+                        }
+                    )
+                elif _block(b, "type") == "text":
+                    out.append({"role": "user", "content": str(_block(b, "text"))})
+        return out
+
+    def agent_turn(
+        self,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        effort: str = "high",
+    ) -> AgentTurn:
+        data = self._chat(
+            "agent",
+            {
+                "messages": self._messages(system, messages),
+                "tools": self._tools(tools),
+                "options": self._options(16000),
+            },
+        )
+        msg = data.get("message", {})
+        text = _THINK.sub("", str(msg.get("content", ""))).strip()
+        calls = [
+            {
+                "id": str(c.get("id") or f"call_{uuid.uuid4().hex[:12]}"),
+                "name": c["function"]["name"],
+                "input": c["function"].get("arguments") or {},
+            }
+            for c in msg.get("tool_calls") or []
+        ]
+        for c in calls:
+            if isinstance(c["input"], str):  # manche Modelle liefern Argumente als JSON-Text
+                try:
+                    c["input"] = json.loads(c["input"])
+                except json.JSONDecodeError:
+                    c["input"] = {}
+        stop = "tool_use" if calls else "end_turn"
+        last = messages[-1]["content"] if messages else ""
+        usage = _Usage(data.get("prompt_eval_count"), data.get("eval_count"))
+        self._audit.llm_call("agent", self.model, str(last), stop, usage)
+        content: list[Any] = [{"type": "text", "text": text}] if text else []
+        content += [{"type": "tool_use", **c} for c in calls]
+        return AgentTurn(content=content, stop_reason=stop, text=text, tool_calls=calls)
+
+
+def ollama_status(base_url: str = DEFAULT_OLLAMA_URL, client: Any = None) -> dict[str, Any]:
+    """Erreichbarkeit, Version und installierte Modelle des lokalen Ollama-Servers."""
+    import httpx
+
+    c = client or httpx.Client(base_url=base_url.rstrip("/"), timeout=3.0)
+    try:
+        version = c.get("/api/version").json().get("version", "?")
+        models = sorted(m["name"] for m in c.get("/api/tags").json().get("models", []))
+        return {"reachable": True, "url": base_url, "version": version, "models": models}
+    except Exception as exc:
+        return {"reachable": False, "url": base_url, "error": f"{type(exc).__name__}: {exc}"}
 
 
 # ---------------------------------------------------------------------------

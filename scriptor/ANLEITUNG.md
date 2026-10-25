@@ -12,6 +12,11 @@ Das Büro arbeitet mit Claude (einer KI von Anthropic). Dafür brauchst du einen
 
 ## Schritt 1: Schlüssel besorgen (einmalig, ca. 5 Minuten)
 
+> **Ohne Schlüssel, kostenlos, offline:** Statt Claude kannst du ein lokales Modell über
+> Ollama nutzen. Dann überspringst du Schritt 1 und 3 und führst einmal
+> `packaging\windows\ollama.ps1` aus (Details: `docs/FRAPP_DESKTOP.md`, Abschnitt „Ollama“).
+> Ehrlich: Lokale Modelle schreiben spürbar schwächer und langsamer als Claude.
+
 1. Öffne <https://console.anthropic.com> und lege ein Konto an.
 2. Lade unter **Billing** Guthaben auf. Für den Anfang reichen 10–20 €.
 3. Erstelle unter **API Keys** mit **Create Key** einen Schlüssel. Er beginnt mit `sk-ant-…`.

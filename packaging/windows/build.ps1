@@ -1,4 +1,4 @@
-# Baut dist\FraPP\FraPP.exe (+ ZIP): FraPP + SCRIPTOR + G.O.D.A.I. Aufruf aus dem Repo-Root:
+﻿# Baut dist\FraPP\FraPP.exe (+ ZIP): FraPP + SCRIPTOR + G.O.D.A.I. Aufruf aus dem Repo-Root:
 #   PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build.ps1
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path "$PSScriptRoot\..\.."

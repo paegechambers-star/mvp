@@ -1,4 +1,4 @@
-# Installiert FraPP (mit SCRIPTOR-Dock, G.O.D.A.I. und ContextOS) für den aktuellen
+﻿# Installiert FraPP (mit SCRIPTOR-Dock, G.O.D.A.I. und ContextOS) für den aktuellen
 # Windows-Benutzer, ohne Adminrechte.
 #   PowerShell -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\install.ps1
 # Legt an: %LOCALAPPDATA%\FraPP\venv, Desktop- und Startmenü-Verknüpfung "FraPP".
